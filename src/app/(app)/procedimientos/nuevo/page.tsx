@@ -30,7 +30,7 @@ export default function PaginaNuevoProcedimiento() {
       const nuevo = await api.post<Procedimiento>("/procedimientos", {
         delito: "Tráfico, Fabricación o Porte de Estupefacientes",
         tipoProcedimiento,
-        fechaCaptura,
+        fechaCaptura: `${fechaCaptura}T00:00:00.000Z`,
         horaCaptura,
       });
       router.push(`/procedimientos/${nuevo.id}`);
