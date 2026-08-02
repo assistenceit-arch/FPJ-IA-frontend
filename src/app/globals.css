@@ -1,0 +1,25 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+body {
+  @apply bg-institucional-50 text-institucional-950 font-sans antialiased;
+}
+
+/* Foco de teclado siempre visible (accesibilidad) */
+:focus-visible {
+  outline: 2px solid theme("colors.acento.DEFAULT");
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
