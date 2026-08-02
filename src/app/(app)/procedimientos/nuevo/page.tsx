@@ -18,8 +18,6 @@ export default function PaginaNuevoProcedimiento() {
   const router = useRouter();
   const [fechaCaptura, setFechaCaptura] = useState("");
   const [horaCaptura, setHoraCaptura] = useState("");
-  const [fechaDisposicion, setFechaDisposicion] = useState("");
-  const [horaDisposicion, setHoraDisposicion] = useState("");
   const [tipoProcedimiento, setTipoProcedimiento] = useState<"ESTANDAR" | "COMPLEJO">("ESTANDAR");
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -34,8 +32,6 @@ export default function PaginaNuevoProcedimiento() {
         tipoProcedimiento,
         fechaCaptura,
         horaCaptura,
-        fechaDisposicion,
-        horaDisposicion,
       });
       router.push(`/procedimientos/${nuevo.id}`);
     } catch (err) {
@@ -77,25 +73,11 @@ export default function PaginaNuevoProcedimiento() {
           />
         </fieldset>
 
-        <fieldset className="grid grid-cols-2 gap-4">
-          <legend className="mb-1 font-sans text-sm font-medium text-institucional-900">
-            Fecha y hora de puesta a disposición
-          </legend>
-          <input
-            type="date"
-            required
-            value={fechaDisposicion}
-            onChange={(e) => setFechaDisposicion(e.target.value)}
-            className="rounded-md border border-institucional-100 px-3 py-2 font-sans text-sm outline-none focus:border-acento"
-          />
-          <input
-            type="time"
-            required
-            value={horaDisposicion}
-            onChange={(e) => setHoraDisposicion(e.target.value)}
-            className="rounded-md border border-institucional-100 px-3 py-2 font-sans text-sm outline-none focus:border-acento"
-          />
-        </fieldset>
+        <p className="rounded-md bg-institucional-100 px-3 py-2.5 font-sans text-xs text-institucional-800">
+          La fecha y hora de puesta a disposición se registra más adelante, cuando se conozca —
+          no se pide aquí porque normalmente no se sabe todavía al momento de crear el
+          procedimiento.
+        </p>
 
         <div>
           <label className="mb-1 block font-sans text-sm font-medium text-institucional-900">
