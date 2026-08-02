@@ -25,7 +25,7 @@ export default function PaginaLogin() {
     try {
       const respuesta = await api.post<RespuestaLogin>(
         "/auth/login",
-        { correo, contrasena },
+        { correo, password: contrasena },
         { conAuth: false },
       );
       const token = respuesta.token ?? respuesta.access_token ?? respuesta.accessToken;
