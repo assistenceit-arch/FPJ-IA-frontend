@@ -18,7 +18,7 @@ interface Capturado {
   tipoDocumento: string | null;
   numeroDocumento: string | null;
   expedicionDocumento: string | null;
-  fechaNacimiento: string;
+  fechaNacimiento: string | null;
   lugarNacimiento: string | null;
   edad: number;
   genero: string;
@@ -134,7 +134,6 @@ export default function EditarInterviniente() {
         "tipoDocumento",
         "numeroDocumento",
         "expedicionDocumento",
-        "fechaNacimiento",
         "lugarNacimiento",
         "genero",
         "estadoCivil",
@@ -153,8 +152,14 @@ export default function EditarInterviniente() {
         "identificacionPlena",
         "formaIdentificacion",
       ]);
+      // fechaNacimiento y edadManual son mutuamente excluyentes (opción
+      // "No aporta fecha de nacimiento"); nunca se envían los dos juntos.
+      const nacimiento =
+        datos.fechaNacimiento === null
+          ? { edadManual: datos.edad }
+          : { fechaNacimiento: datos.fechaNacimiento };
       try {
-        await api.patch(`/procedimientos/${id}/capturados/${capturadoId}`, resto);
+        await api.patch(`/procedimientos/${id}/capturados/${capturadoId}`, { ...resto, ...nacimiento });
         setError(null);
       } catch (err) {
         setError(err instanceof ApiError ? err.message : "No fue posible guardar.");
@@ -212,8 +217,8 @@ export default function EditarInterviniente() {
             {p.primerNombre} {p.primerApellido}
           </h1>
           <p className="mt-1 font-sans text-sm text-institucional-700">
-            {p.tipoInterviniente === "APREHENDIDO" ? "Aprehendido" : "Capturado"} · {p.edad} años (calculado
-            automáticamente)
+            {p.tipoInterviniente === "APREHENDIDO" ? "Aprehendido" : "Capturado"} · {p.edad} años (
+            {p.fechaNacimiento === null ? "edad aportada manualmente" : "calculado automáticamente"})
           </p>
         </div>
         <IndicadorGuardado estado={estadoPersona} />
@@ -285,14 +290,46 @@ export default function EditarInterviniente() {
             onChange={(e) => set({ segundoApellido: e.target.value })}
           />
         </Campo>
-        <Campo etiqueta="Fecha de nacimiento" requerido>
-          <input
-            type="date"
-            className={claseInput}
-            value={p.fechaNacimiento.slice(0, 10)}
-            onChange={(e) => set({ fechaNacimiento: `${e.target.value}T00:00:00.000Z` })}
-          />
-        </Campo>
+        <div className="sm:col-span-1">
+          <div className="mb-1 flex items-center justify-between">
+            <span className="font-sans text-sm font-medium text-institucional-900">
+              Fecha de nacimiento
+              {p.fechaNacimiento !== null && <span className="text-estado-error"> *</span>}
+            </span>
+            <label className="flex items-center gap-2 font-sans text-xs text-institucional-700">
+              <input
+                type="checkbox"
+                checked={p.fechaNacimiento === null}
+                onChange={(e) => {
+                  if (e.target.checked) {
+                    set({ fechaNacimiento: null });
+                  } else {
+                    set({ fechaNacimiento: "" });
+                  }
+                }}
+              />
+              No aporta
+            </label>
+          </div>
+          {p.fechaNacimiento === null ? (
+            <input
+              type="number"
+              min={0}
+              max={120}
+              placeholder="Edad aproximada, ej. 16"
+              className={claseInput}
+              value={p.edad}
+              onChange={(e) => set({ edad: Number(e.target.value) })}
+            />
+          ) : (
+            <input
+              type="date"
+              className={claseInput}
+              value={p.fechaNacimiento.slice(0, 10)}
+              onChange={(e) => set({ fechaNacimiento: `${e.target.value}T00:00:00.000Z` })}
+            />
+          )}
+        </div>
         <Campo etiqueta="Lugar de nacimiento">
           <input
             className={claseInput}

@@ -11,6 +11,8 @@ export default function NuevoInterviniente() {
   const [primerNombre, setPrimerNombre] = useState("");
   const [primerApellido, setPrimerApellido] = useState("");
   const [fechaNacimiento, setFechaNacimiento] = useState("");
+  const [noAportaFechaNacimiento, setNoAportaFechaNacimiento] = useState(false);
+  const [edadManual, setEdadManual] = useState("");
   const [genero, setGenero] = useState("Masculino");
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -18,12 +20,20 @@ export default function NuevoInterviniente() {
   async function manejarEnvio(evento: FormEvent) {
     evento.preventDefault();
     setError(null);
+
+    if (noAportaFechaNacimiento && !edadManual.trim()) {
+      setError('Digite la edad aproximada, ya que marcó "No aporta fecha de nacimiento".');
+      return;
+    }
+
     setCargando(true);
     try {
       const nuevo = await api.post<{ id: string }>(`/procedimientos/${id}/capturados`, {
         primerNombre,
         primerApellido,
-        fechaNacimiento: `${fechaNacimiento}T00:00:00.000Z`,
+        ...(noAportaFechaNacimiento
+          ? { edadManual: Number(edadManual) }
+          : { fechaNacimiento: `${fechaNacimiento}T00:00:00.000Z` }),
         genero,
       });
       router.push(`/procedimientos/${id}/intervinientes/${nuevo.id}`);
@@ -48,7 +58,8 @@ export default function NuevoInterviniente() {
       <h1 className="mt-3 font-display text-2xl text-institucional-950">Nuevo interviniente</h1>
       <p className="mt-1 font-sans text-sm text-institucional-700">
         El sistema determinará automáticamente si es Capturado o Aprehendido según la fecha de
-        nacimiento. Podrás completar el resto de la información en la siguiente pantalla.
+        nacimiento (o la edad, si no la aporta). Podrás completar el resto de la información en la
+        siguiente pantalla.
       </p>
 
       <form onSubmit={manejarEnvio} className="mt-6 space-y-4 rounded-lg border border-institucional-100 bg-white p-6 shadow-sm">
@@ -74,18 +85,46 @@ export default function NuevoInterviniente() {
             onChange={(e) => setPrimerApellido(e.target.value)}
           />
         </label>
-        <label className="block">
-          <span className="mb-1 block font-sans text-sm font-medium text-institucional-900">
-            Fecha de nacimiento <span className="text-estado-error">*</span>
-          </span>
-          <input
-            required
-            type="date"
-            className={claseInput}
-            value={fechaNacimiento}
-            onChange={(e) => setFechaNacimiento(e.target.value)}
-          />
-        </label>
+        <div>
+          <div className="flex items-center justify-between">
+            <span className="block font-sans text-sm font-medium text-institucional-900">
+              Fecha de nacimiento
+              {!noAportaFechaNacimiento && <span className="text-estado-error"> *</span>}
+            </span>
+            <label className="flex items-center gap-2 font-sans text-xs text-institucional-700">
+              <input
+                type="checkbox"
+                checked={noAportaFechaNacimiento}
+                onChange={(e) => {
+                  setNoAportaFechaNacimiento(e.target.checked);
+                  if (e.target.checked) setFechaNacimiento("");
+                  else setEdadManual("");
+                }}
+              />
+              No aporta fecha de nacimiento
+            </label>
+          </div>
+          {noAportaFechaNacimiento ? (
+            <input
+              required
+              type="number"
+              min={0}
+              max={120}
+              placeholder="Edad aproximada, ej. 16"
+              className={`mt-1 ${claseInput}`}
+              value={edadManual}
+              onChange={(e) => setEdadManual(e.target.value)}
+            />
+          ) : (
+            <input
+              required
+              type="date"
+              className={`mt-1 ${claseInput}`}
+              value={fechaNacimiento}
+              onChange={(e) => setFechaNacimiento(e.target.value)}
+            />
+          )}
+        </div>
         <label className="block">
           <span className="mb-1 block font-sans text-sm font-medium text-institucional-900">
             Género <span className="text-estado-error">*</span>
