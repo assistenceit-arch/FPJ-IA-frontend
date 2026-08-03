@@ -112,6 +112,7 @@ export default function BloqueFuncionario() {
         datos.entidad,
         datos.cargo,
         datos.telefono,
+        datos.correo,
         datos.placa,
         datos.zonaAtencion,
         datos.estacion,
@@ -166,7 +167,7 @@ export default function BloqueFuncionario() {
           <div>
             <h1 className="font-display text-2xl text-institucional-950">1. Funcionario que realiza el procedimiento</h1>
             <p className="mt-1 font-sans text-sm text-institucional-700">
-              Todos los campos son obligatorios, salvo el correo electrónico.
+              Todos los campos son obligatorios.
             </p>
           </div>
           <IndicadorGuardado estado={estadoGuardadoFuncionario} />
@@ -246,7 +247,7 @@ export default function BloqueFuncionario() {
               onChange={(e) => setFuncionario({ ...funcionario, telefono: e.target.value })}
             />
           </Campo>
-          <Campo etiqueta="Correo electrónico">
+          <Campo etiqueta="Correo electrónico" requerido>
             <input
               type="email"
               className={claseInput}

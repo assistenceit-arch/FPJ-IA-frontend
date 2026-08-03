@@ -12,6 +12,7 @@ export function estadoFuncionario(funcionario: FuncionarioActuante | null): Esta
     funcionario.entidad,
     funcionario.cargo,
     funcionario.telefono,
+    funcionario.correo,
     funcionario.placa,
     funcionario.zonaAtencion,
     funcionario.estacion,
