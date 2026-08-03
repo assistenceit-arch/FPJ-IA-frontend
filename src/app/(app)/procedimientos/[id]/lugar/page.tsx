@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { api, ApiError } from "@/lib/api";
 import { useAutoguardado } from "@/lib/useAutoguardado";
 import { IndicadorGuardado } from "@/components/IndicadorGuardado";
+import { soloClaves } from "@/lib/limpiar";
 import type { LugarProcedimiento } from "@/lib/tipos";
 
 const LUGAR_VACIO: LugarProcedimiento = {
@@ -51,7 +52,12 @@ export default function BloqueLugar() {
       .get<LugarProcedimiento | null>(`/procedimientos/${id}/lugar-procedimiento`)
       .then((l) => {
         if (cancelado) return;
-        if (l) setLugar({ ...LUGAR_VACIO, ...l });
+        if (l) {
+          setLugar({
+            ...LUGAR_VACIO,
+            ...soloClaves(l, ["departamento", "municipio", "localidad", "barrio", "direccion", "caracteristicas"]),
+          });
+        }
         setCargando(false);
       })
       .catch(() => setCargando(false));

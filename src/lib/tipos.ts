@@ -70,6 +70,28 @@ export interface ActuacionesProcedimiento {
   observacionAdicional?: string;
 }
 
+export const CLAVES_ACTUACIONES = [
+  "derechosLeidos",
+  "fechaDerechos",
+  "horaDerechos",
+  "comprendeDerechos",
+  "usoEsposas",
+  "justificacionEsposas",
+  "presentaLesiones",
+  "descripcionLesiones",
+  "trasladoCentroAsistencial",
+  "centroAsistencial",
+  "motivoTraslado",
+  "autoridadReceptora",
+  "justificacionDemora",
+  "observacionInicial",
+  "desarrolloIntervencion",
+  "tieneCircunstanciaRelevante",
+  "circunstanciaRelevante",
+  "tieneObservacionAdicional",
+  "observacionAdicional",
+] as const;
+
 export const ACTUACIONES_VACIAS: ActuacionesProcedimiento = {
   derechosLeidos: false,
   fechaDerechos: "",

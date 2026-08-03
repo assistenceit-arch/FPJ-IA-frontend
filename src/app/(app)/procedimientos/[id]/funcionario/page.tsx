@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { api, ApiError } from "@/lib/api";
 import { useAutoguardado } from "@/lib/useAutoguardado";
 import { IndicadorGuardado } from "@/components/IndicadorGuardado";
+import { soloClaves } from "@/lib/limpiar";
 import type { FuncionarioActuante, CompaneroPatrulla } from "@/lib/tipos";
 
 const ENTIDADES = ["Policía Nacional", "CTI Fiscalía", "Migración Colombia", "Ejército Nacional", "Otra"];
@@ -74,9 +75,26 @@ export default function BloqueFuncionario() {
       api.get<CompaneroPatrulla | null>(`/procedimientos/${id}/companero-patrulla`).catch(() => null),
     ]).then(([f, c]) => {
       if (cancelado) return;
-      if (f) setFuncionario({ ...FUNCIONARIO_VACIO, ...f });
+      if (f) {
+        setFuncionario({
+          ...FUNCIONARIO_VACIO,
+          ...soloClaves(f, [
+            "nombreCompleto",
+            "documento",
+            "entidad",
+            "cargo",
+            "telefono",
+            "correo",
+            "placa",
+            "zonaAtencion",
+            "estacion",
+            "servicio",
+            "cai",
+          ]),
+        });
+      }
       if (c) {
-        setCompanero(c);
+        setCompanero(soloClaves(c, ["nombreCompleto", "documento", "placa", "grado"]));
         setTieneCompanero(true);
       }
       setCargando(false);

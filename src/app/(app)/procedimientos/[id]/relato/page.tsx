@@ -5,8 +5,9 @@ import { useParams } from "next/navigation";
 import { api, ApiError } from "@/lib/api";
 import { useAutoguardado } from "@/lib/useAutoguardado";
 import { IndicadorGuardado } from "@/components/IndicadorGuardado";
+import { soloClaves } from "@/lib/limpiar";
 import type { ActuacionesProcedimiento } from "@/lib/tipos";
-import { ACTUACIONES_VACIAS } from "@/lib/tipos";
+import { ACTUACIONES_VACIAS, CLAVES_ACTUACIONES } from "@/lib/tipos";
 
 const claseInput =
   "block w-full rounded-md border border-institucional-100 bg-white px-3 py-2 font-sans text-sm text-institucional-950 outline-none focus:border-acento";
@@ -58,7 +59,7 @@ export default function BloqueRelato() {
       .then((a) => {
         if (cancelado) return;
         if (a) {
-          setDatos({ ...ACTUACIONES_VACIAS, ...a });
+          setDatos({ ...ACTUACIONES_VACIAS, ...soloClaves(a, CLAVES_ACTUACIONES) });
         } else {
           setFaltaBloque5(true);
         }

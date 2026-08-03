@@ -6,6 +6,7 @@ import { useParams } from "next/navigation";
 import { api, ApiError } from "@/lib/api";
 import { useAutoguardado } from "@/lib/useAutoguardado";
 import { IndicadorGuardado } from "@/components/IndicadorGuardado";
+import { soloClaves } from "@/lib/limpiar";
 
 interface Capturado {
   id: string;
@@ -99,7 +100,17 @@ export default function EditarInterviniente() {
       .then(([p, c]) => {
         if (cancelado) return;
         setPersona(p);
-        if (c) setContacto(c);
+        if (c) {
+          setContacto(
+            soloClaves(c, [
+              "nombre",
+              "telefono",
+              "comunicacionExitosa",
+              "horaComunicacion",
+              "justificacionNoComunicacion",
+            ]),
+          );
+        }
         setCargando(false);
       })
       .catch((err) => {
@@ -114,7 +125,33 @@ export default function EditarInterviniente() {
   const guardarPersona = useCallback(
     async (datos: Capturado | null) => {
       if (!datos) return;
-      const { id: _omitido, tipoInterviniente: _t, edad: _e, ...resto } = datos;
+      const resto = soloClaves(datos, [
+        "primerNombre",
+        "segundoNombre",
+        "primerApellido",
+        "segundoApellido",
+        "tipoDocumento",
+        "numeroDocumento",
+        "expedicionDocumento",
+        "fechaNacimiento",
+        "lugarNacimiento",
+        "genero",
+        "estadoCivil",
+        "ocupacion",
+        "correo",
+        "direccion",
+        "telefono",
+        "senalesParticulares",
+        "nombrePadres",
+        "telefonoPadres",
+        "nombreAcudiente",
+        "parentescoAcudiente",
+        "telefonoAcudiente",
+        "participacionHechos",
+        "comportamientoAbordaje",
+        "identificacionPlena",
+        "formaIdentificacion",
+      ]);
       try {
         await api.patch(`/procedimientos/${id}/capturados/${capturadoId}`, resto);
         setError(null);
