@@ -7,6 +7,7 @@ import { api, ApiError } from "@/lib/api";
 import { useAutoguardado } from "@/lib/useAutoguardado";
 import { IndicadorGuardado } from "@/components/IndicadorGuardado";
 import { soloClaves } from "@/lib/limpiar";
+import { CampoHora } from "@/components/CampoHora";
 
 interface Capturado {
   id: string;
@@ -499,11 +500,9 @@ export default function EditarInterviniente() {
           </div>
           {contacto.comunicacionExitosa ? (
             <Campo etiqueta="Hora de la comunicación">
-              <input
-                type="time"
-                className={claseInput}
+              <CampoHora
                 value={contacto.horaComunicacion ?? ""}
-                onChange={(e) => setContacto({ ...contacto, horaComunicacion: e.target.value })}
+                onChange={(v) => setContacto({ ...contacto, horaComunicacion: v })}
               />
             </Campo>
           ) : (

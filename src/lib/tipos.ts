@@ -25,7 +25,7 @@ export interface FuncionarioActuante {
   zonaAtencion: string;
   estacion: string;
   servicio: string;
-  cai?: string;
+  cai: string;
 }
 
 export interface CompaneroPatrulla {

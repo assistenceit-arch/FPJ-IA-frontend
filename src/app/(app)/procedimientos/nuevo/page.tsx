@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { api, ApiError } from "@/lib/api";
 import type { Procedimiento } from "@/lib/tipos";
+import { CampoHora } from "@/components/CampoHora";
 
 /**
  * NOTA: los campos exactos que exige POST /procedimientos todavía no se
@@ -25,6 +26,10 @@ export default function PaginaNuevoProcedimiento() {
   async function manejarEnvio(evento: FormEvent) {
     evento.preventDefault();
     setError(null);
+    if (!horaCaptura) {
+      setError("La hora de captura/aprehensión es obligatoria.");
+      return;
+    }
     setCargando(true);
     try {
       const nuevo = await api.post<Procedimiento>("/procedimientos", {
@@ -64,13 +69,7 @@ export default function PaginaNuevoProcedimiento() {
             onChange={(e) => setFechaCaptura(e.target.value)}
             className="rounded-md border border-institucional-100 px-3 py-2 font-sans text-sm outline-none focus:border-acento"
           />
-          <input
-            type="time"
-            required
-            value={horaCaptura}
-            onChange={(e) => setHoraCaptura(e.target.value)}
-            className="rounded-md border border-institucional-100 px-3 py-2 font-sans text-sm outline-none focus:border-acento"
-          />
+          <CampoHora value={horaCaptura} onChange={setHoraCaptura} />
         </fieldset>
 
         <p className="rounded-md bg-institucional-100 px-3 py-2.5 font-sans text-xs text-institucional-800">

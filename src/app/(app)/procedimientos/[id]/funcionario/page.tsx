@@ -117,6 +117,7 @@ export default function BloqueFuncionario() {
         datos.zonaAtencion,
         datos.estacion,
         datos.servicio,
+        datos.cai,
       ];
       if (!requeridos.every((v) => v && v.trim())) return; // aún incompleto: no intentar guardar
       try {
@@ -233,7 +234,7 @@ export default function BloqueFuncionario() {
               onChange={(e) => setFuncionario({ ...funcionario, estacion: e.target.value })}
             />
           </Campo>
-          <Campo etiqueta="CAI">
+          <Campo etiqueta="CAI" requerido>
             <input
               className={claseInput}
               value={funcionario.cai ?? ""}

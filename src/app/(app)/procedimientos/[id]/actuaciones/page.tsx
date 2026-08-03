@@ -6,6 +6,7 @@ import { api, ApiError } from "@/lib/api";
 import { useAutoguardado } from "@/lib/useAutoguardado";
 import { IndicadorGuardado } from "@/components/IndicadorGuardado";
 import { soloClaves } from "@/lib/limpiar";
+import { CampoHora } from "@/components/CampoHora";
 import type { ActuacionesProcedimiento, Procedimiento } from "@/lib/tipos";
 import { ACTUACIONES_VACIAS, CLAVES_ACTUACIONES } from "@/lib/tipos";
 
@@ -148,12 +149,7 @@ export default function BloqueActuaciones() {
                 />
               </Campo>
               <Campo etiqueta="Hora de lectura de derechos" requerido>
-                <input
-                  type="time"
-                  className={claseInput}
-                  value={datos.horaDerechos}
-                  onChange={(e) => set({ horaDerechos: e.target.value })}
-                />
+                <CampoHora value={datos.horaDerechos} onChange={(v) => set({ horaDerechos: v })} />
               </Campo>
             </div>
             <Campo etiqueta="¿Comprendió los derechos informados?" requerido>
@@ -238,11 +234,9 @@ export default function BloqueActuaciones() {
             />
           </Campo>
           <Campo etiqueta="Hora" requerido>
-            <input
-              type="time"
-              className={claseInput}
+            <CampoHora
               value={procedimiento?.horaDisposicion ?? ""}
-              onChange={(e) => setProcedimiento(procedimiento && { ...procedimiento, horaDisposicion: e.target.value })}
+              onChange={(v) => setProcedimiento(procedimiento && { ...procedimiento, horaDisposicion: v })}
             />
           </Campo>
           <Campo etiqueta="Autoridad receptora" requerido>
