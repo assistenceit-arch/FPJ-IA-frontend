@@ -27,3 +27,7 @@ next-env.d.ts
 # parches de Claude, nunca se versionan
 *.patch
 *.b64.txt
+
+# parches de Claude, nunca se versionan
+*.patch
+*.b64.txt
