@@ -6,7 +6,7 @@
 /out/
 /build
 
-# variables de entorno (contienen configuraciÃ³n local, nunca se suben)
+# variables de entorno (contienen configuración local, nunca se suben)
 .env
 .env.local
 .env*.local
@@ -23,10 +23,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
-
-# parches de Claude, nunca se versionan
-*.patch
-*.b64.txt
 
 # parches de Claude, nunca se versionan
 *.patch
