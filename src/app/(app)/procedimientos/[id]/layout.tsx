@@ -4,14 +4,32 @@ import Link from "next/link";
 import { usePathname, useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
-import type { FuncionarioActuante, LugarProcedimiento, EstadoBloque } from "@/lib/tipos";
-import { estadoFuncionario, estadoLugar, estadoIntervinientes, PUNTO_ESTADO } from "@/lib/estados";
+import type {
+  ActuacionesProcedimiento,
+  EstadoBloque,
+  FuncionarioActuante,
+  LugarProcedimiento,
+  Procedimiento,
+} from "@/lib/tipos";
+import {
+  estadoActuaciones,
+  estadoElementos,
+  estadoFuncionario,
+  estadoIntervinientes,
+  estadoLugar,
+  estadoRelato,
+  PUNTO_ESTADO,
+} from "@/lib/estados";
 
 interface ItemBloque {
   slug: string;
   numero: number;
   titulo: string;
   estado: EstadoBloque;
+}
+
+interface CapturadoResumen {
+  id: string;
 }
 
 export default function LayoutProcedimiento({ children }: { children: React.ReactNode }) {
@@ -26,11 +44,29 @@ export default function LayoutProcedimiento({ children }: { children: React.Reac
       // Cada bloque se consulta de forma independiente y tolerante a
       // fallos: si un módulo todavía no tiene datos (o su endpoint aún
       // está en construcción), no debe romper la navegación de los demás.
-      const [funcionario, lugar, intervinientes] = await Promise.all([
+      const [funcionario, lugar, capturados, actuaciones, procedimiento] = await Promise.all([
         api.get<FuncionarioActuante | null>(`/procedimientos/${id}/funcionario-actuante`).catch(() => null),
         api.get<LugarProcedimiento | null>(`/procedimientos/${id}/lugar-procedimiento`).catch(() => null),
-        api.get<unknown[]>(`/procedimientos/${id}/capturados`).catch(() => null),
+        api.get<CapturadoResumen[]>(`/procedimientos/${id}/capturados`).catch(() => null),
+        api.get<ActuacionesProcedimiento | null>(`/procedimientos/${id}/actuaciones-procedimiento`).catch(() => null),
+        api.get<Procedimiento>(`/procedimientos/${id}`).catch(() => null),
       ]);
+
+      // El total de elementos incautados se calcula sumando los de cada
+      // interviniente (no hay un endpoint agregado a nivel de
+      // procedimiento). Si no hay intervinientes todavía, queda en null
+      // (= "vacío"), igual que Intervinientes.
+      let cantidadElementos: number | null = null;
+      if (capturados && capturados.length > 0) {
+        const listas = await Promise.all(
+          capturados.map((c) =>
+            api.get<unknown[]>(`/procedimientos/${id}/capturados/${c.id}/elementos`).catch(() => []),
+          ),
+        );
+        cantidadElementos = listas.reduce((total, lista) => total + lista.length, 0);
+      } else if (capturados && capturados.length === 0) {
+        cantidadElementos = 0;
+      }
 
       if (cancelado) return;
 
@@ -40,12 +76,17 @@ export default function LayoutProcedimiento({ children }: { children: React.Reac
           slug: "intervinientes",
           numero: 2,
           titulo: "Intervinientes",
-          estado: estadoIntervinientes(intervinientes?.length ?? null),
+          estado: estadoIntervinientes(capturados?.length ?? null),
         },
         { slug: "lugar", numero: 3, titulo: "Lugar del procedimiento", estado: estadoLugar(lugar) },
-        { slug: "elementos", numero: 4, titulo: "Elementos incautados", estado: "vacio" },
-        { slug: "actuaciones", numero: 5, titulo: "Actuaciones procedimentales", estado: "vacio" },
-        { slug: "relato", numero: 6, titulo: "Relato de los hechos", estado: "vacio" },
+        { slug: "elementos", numero: 4, titulo: "Elementos incautados", estado: estadoElementos(cantidadElementos) },
+        {
+          slug: "actuaciones",
+          numero: 5,
+          titulo: "Actuaciones procedimentales",
+          estado: estadoActuaciones(actuaciones, procedimiento),
+        },
+        { slug: "relato", numero: 6, titulo: "Relato de los hechos", estado: estadoRelato(actuaciones) },
       ]);
     }
 
