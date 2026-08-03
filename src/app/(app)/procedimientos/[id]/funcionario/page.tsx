@@ -106,20 +106,11 @@ export default function BloqueFuncionario() {
 
   const guardarFuncionario = useCallback(
     async (datos: FuncionarioActuante) => {
-      const requeridos = [
-        datos.nombreCompleto,
-        datos.documento,
-        datos.entidad,
-        datos.cargo,
-        datos.telefono,
-        datos.correo,
-        datos.placa,
-        datos.zonaAtencion,
-        datos.estacion,
-        datos.servicio,
-        datos.cai,
-      ];
-      if (!requeridos.every((v) => v && v.trim())) return; // aún incompleto: no intentar guardar
+      // Adenda 2026-08-03: ya no se bloquea el guardado hasta que todo
+      // esté completo — el backend ahora admite borrador parcial, y la
+      // obligatoriedad se refleja solo en el punto de color del bloque
+      // (ver estadoFuncionario en src/lib/estados.ts). Antes, si faltaba
+      // un solo campo, nada se guardaba y el trabajo se perdía al salir.
       try {
         await api.put(`/procedimientos/${id}/funcionario-actuante`, datos);
         setError(null);
@@ -137,8 +128,8 @@ export default function BloqueFuncionario() {
   const guardarCompanero = useCallback(
     async (datos: CompaneroPatrulla | null) => {
       if (!datos) return;
-      const requeridos = [datos.nombreCompleto, datos.documento, datos.placa];
-      if (!requeridos.every((v) => v && v.trim())) return;
+      // Adenda 2026-08-03: mismo criterio que el funcionario — se guarda
+      // el borrador parcial aunque falten campos.
       await api.put(`/procedimientos/${id}/companero-patrulla`, datos);
     },
     [id],

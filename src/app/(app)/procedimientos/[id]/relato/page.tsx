@@ -60,9 +60,11 @@ export default function BloqueRelato() {
         if (cancelado) return;
         if (a) {
           setDatos({ ...ACTUACIONES_VACIAS, ...soloClaves(a, CLAVES_ACTUACIONES) });
-        } else {
-          setFaltaBloque5(true);
         }
+        // Adenda 2026-08-03: esto ahora es solo informativo — el relato
+        // ya se guarda igual aunque falte el Bloque 5 (el backend admite
+        // borrador parcial). Antes esto bloqueaba también el guardado.
+        setFaltaBloque5(!a || !a.fechaDerechos || !a.horaDerechos || !a.autoridadReceptora?.trim());
         setCargando(false);
       })
       .catch(() => setCargando(false));
@@ -73,14 +75,12 @@ export default function BloqueRelato() {
 
   const guardar = useCallback(
     async (valor: ActuacionesProcedimiento) => {
-      // El relato comparte el registro con las Actuaciones (Bloque 5). Si
-      // ese bloque aún no tiene sus campos obligatorios, no se puede
-      // guardar todavía — se le pide al usuario completarlo primero.
-      if (!valor.fechaDerechos || !valor.horaDerechos || !valor.autoridadReceptora?.trim()) {
-        setFaltaBloque5(true);
-        return;
-      }
-      setFaltaBloque5(false);
+      // Adenda 2026-08-03: el relato comparte el registro con las
+      // Actuaciones (Bloque 5), pero ya no se bloquea el guardado si ese
+      // bloque aún no está completo — el backend admite borrador
+      // parcial. El aviso de abajo queda solo como sugerencia de orden
+      // de trabajo, no como impedimento.
+      setFaltaBloque5(!valor.fechaDerechos || !valor.horaDerechos || !valor.autoridadReceptora?.trim());
       try {
         await api.put(`/procedimientos/${id}/actuaciones-procedimiento`, valor);
         setError(null);
@@ -111,8 +111,8 @@ export default function BloqueRelato() {
 
       {faltaBloque5 && (
         <p className="rounded-md bg-institucional-100 px-3 py-2.5 font-sans text-xs text-institucional-800">
-          Completa primero el Bloque 5 (Actuaciones Procedimentales) — este relato se guarda junto con
-          esa información.
+          Recomendamos completar primero el Bloque 5 (Actuaciones Procedimentales) — este relato se
+          guarda junto con esa información, aunque puedes diligenciarlo ya mismo si prefieres.
         </p>
       )}
 

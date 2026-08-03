@@ -328,7 +328,7 @@ export default function EditarInterviniente() {
               type="date"
               className={claseInput}
               value={p.fechaNacimiento.slice(0, 10)}
-              onChange={(e) => set({ fechaNacimiento: `${e.target.value}T00:00:00.000Z` })}
+              onChange={(e) => set({ fechaNacimiento: e.target.value ? `${e.target.value}T00:00:00.000Z` : "" })}
             />
           )}
         </div>

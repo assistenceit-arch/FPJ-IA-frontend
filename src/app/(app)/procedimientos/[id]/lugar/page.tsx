@@ -68,8 +68,10 @@ export default function BloqueLugar() {
 
   const guardar = useCallback(
     async (datos: LugarProcedimiento) => {
-      const requeridos = [datos.departamento, datos.municipio, datos.barrio, datos.direccion];
-      if (!requeridos.every((v) => v && v.trim())) return;
+      // Adenda 2026-08-03: ya no se bloquea el guardado hasta que los 4
+      // campos obligatorios estén completos — el backend ahora admite
+      // borrador parcial. Antes, si faltaba uno, nada se guardaba y el
+      // trabajo se perdía al salir o recargar la página.
       try {
         await api.put(`/procedimientos/${id}/lugar-procedimiento`, datos);
         setError(null);

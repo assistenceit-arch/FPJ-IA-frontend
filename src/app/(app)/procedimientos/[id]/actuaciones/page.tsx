@@ -80,7 +80,12 @@ export default function BloqueActuaciones() {
 
   const guardar = useCallback(
     async (valor: ActuacionesProcedimiento) => {
-      if (!valor.fechaDerechos || !valor.horaDerechos || !valor.autoridadReceptora?.trim()) return;
+      // Adenda 2026-08-03: ya no se bloquea el guardado hasta que
+      // fechaDerechos/horaDerechos/autoridadReceptora estén completos —
+      // el backend ahora admite borrador parcial. Antes, mientras
+      // faltara alguno, NADA de este bloque se guardaba (incluido el
+      // relato del Bloque 6, que comparte este mismo registro), y el
+      // trabajo se perdía al salir o recargar la página.
       try {
         await api.put(`/procedimientos/${id}/actuaciones-procedimiento`, valor);
         setError(null);
@@ -95,7 +100,9 @@ export default function BloqueActuaciones() {
 
   const guardarDisposicion = useCallback(
     async (p: Procedimiento | null) => {
-      if (!p || !p.fechaDisposicion || !p.horaDisposicion) return;
+      if (!p) return;
+      // Adenda 2026-08-03: se guarda cada campo por separado (fecha u
+      // hora), ya no se exige que ambos estén presentes a la vez.
       await api.patch(`/procedimientos/${id}`, {
         fechaDisposicion: p.fechaDisposicion,
         horaDisposicion: p.horaDisposicion,
@@ -145,7 +152,7 @@ export default function BloqueActuaciones() {
                   type="date"
                   className={claseInput}
                   value={datos.fechaDerechos?.slice(0, 10) ?? ""}
-                  onChange={(e) => set({ fechaDerechos: `${e.target.value}T00:00:00.000Z` })}
+                  onChange={(e) => set({ fechaDerechos: e.target.value ? `${e.target.value}T00:00:00.000Z` : "" })}
                 />
               </Campo>
               <Campo etiqueta="Hora de lectura de derechos" requerido>
@@ -228,7 +235,10 @@ export default function BloqueActuaciones() {
               value={procedimiento?.fechaDisposicion?.slice(0, 10) ?? ""}
               onChange={(e) =>
                 setProcedimiento(
-                  procedimiento && { ...procedimiento, fechaDisposicion: `${e.target.value}T00:00:00.000Z` },
+                  procedimiento && {
+                    ...procedimiento,
+                    fechaDisposicion: e.target.value ? `${e.target.value}T00:00:00.000Z` : null,
+                  },
                 )
               }
             />
