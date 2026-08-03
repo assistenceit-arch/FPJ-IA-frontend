@@ -57,8 +57,11 @@ export function estadoElementos(cantidadElementos: number | null): EstadoBloque 
  * "completo" solo si además: (a) los campos condicionales de cada
  * subsección están llenos cuando la pregunta Sí/No correspondiente fue
  * "Sí", (b) la puesta a disposición (fecha/hora, guardadas en el
- * Procedimiento) está diligenciada, y (c) si el backend marcó
- * demoraExistente, hay justificación de la demora.
+ * Procedimiento) está diligenciada, (c) si el backend marcó
+ * demoraExistente, hay justificación de la demora, y (d) cada
+ * interviniente Aprehendido tiene respondida la pregunta de uso de
+ * esposas (Adenda 2026-08-03: pasó de ser una sola respuesta del
+ * procedimiento a una pregunta individual por interviniente Aprehendido).
  *
  * Nota: demoraExistente viene calculado por el backend en el último
  * guardado de actuaciones-procedimiento. Si la puesta a disposición se
@@ -69,6 +72,7 @@ export function estadoElementos(cantidadElementos: number | null): EstadoBloque 
 export function estadoActuaciones(
   actuaciones: ActuacionesProcedimiento | null,
   procedimiento: Procedimiento | null,
+  aprehendidos: Array<{ usoEsposas: boolean | null; justificacionEsposas: string | null }> = [],
 ): EstadoBloque {
   if (!actuaciones) return "vacio";
 
@@ -81,9 +85,6 @@ export function estadoActuaciones(
   if (actuaciones.derechosLeidos) {
     requeridos.push(actuaciones.fechaDerechos, actuaciones.horaDerechos);
   }
-  if (actuaciones.usoEsposas) {
-    requeridos.push(actuaciones.justificacionEsposas);
-  }
   if (actuaciones.presentaLesiones) {
     requeridos.push(actuaciones.descripcionLesiones);
   }
@@ -94,7 +95,15 @@ export function estadoActuaciones(
     requeridos.push(actuaciones.justificacionDemora);
   }
 
-  return requeridos.every((v) => Boolean(v && v.trim())) ? "completo" : "pendiente";
+  const textosCompletos = requeridos.every((v) => Boolean(v && v.trim()));
+
+  const esposasCompletas = aprehendidos.every((a) => {
+    if (a.usoEsposas === null || a.usoEsposas === undefined) return false;
+    if (a.usoEsposas === true) return Boolean(a.justificacionEsposas && a.justificacionEsposas.trim());
+    return true;
+  });
+
+  return textosCompletos && esposasCompletas ? "completo" : "pendiente";
 }
 
 /**

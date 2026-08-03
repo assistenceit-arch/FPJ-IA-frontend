@@ -55,11 +55,67 @@ function Seccion({ titulo, children }: { titulo: string; children: React.ReactNo
   );
 }
 
+function FilaEsposas({
+  procedimientoId,
+  persona,
+}: {
+  procedimientoId: string;
+  persona: { id: string; primerNombre: string; primerApellido: string; usoEsposas: boolean | null; justificacionEsposas: string | null };
+}) {
+  const [usoEsposas, setUsoEsposas] = useState(persona.usoEsposas ?? false);
+  const [justificacionEsposas, setJustificacionEsposas] = useState(persona.justificacionEsposas ?? "");
+
+  const guardar = useCallback(
+    async (valor: { usoEsposas: boolean; justificacionEsposas: string }) => {
+      await api.patch(`/procedimientos/${procedimientoId}/capturados/${persona.id}`, valor);
+    },
+    [procedimientoId, persona.id],
+  );
+  const { estado } = useAutoguardado({ usoEsposas, justificacionEsposas }, guardar);
+
+  return (
+    <div className="rounded-lg border border-institucional-100 bg-white p-4 shadow-sm">
+      <div className="flex items-center justify-between">
+        <p className="font-sans text-sm font-medium text-institucional-950">
+          {persona.primerNombre} {persona.primerApellido}
+        </p>
+        <IndicadorGuardado estado={estado} />
+      </div>
+      <div className="mt-3">
+        <Campo etiqueta="¿Se le colocaron esposas?" requerido>
+          <SiNo valor={usoEsposas} onChange={setUsoEsposas} />
+        </Campo>
+      </div>
+      {usoEsposas && (
+        <div className="mt-3">
+          <Campo etiqueta="Justificación del uso de esposas" requerido>
+            <textarea
+              rows={2}
+              className={claseInput}
+              value={justificacionEsposas}
+              onChange={(e) => setJustificacionEsposas(e.target.value)}
+            />
+          </Campo>
+        </div>
+      )}
+    </div>
+  );
+}
+
+interface AprehendidoResumen {
+  id: string;
+  primerNombre: string;
+  primerApellido: string;
+  usoEsposas: boolean | null;
+  justificacionEsposas: string | null;
+}
+
 export default function BloqueActuaciones() {
   const { id } = useParams<{ id: string }>();
   const [cargando, setCargando] = useState(true);
   const [datos, setDatos] = useState<ActuacionesProcedimiento>(ACTUACIONES_VACIAS);
   const [procedimiento, setProcedimiento] = useState<Procedimiento | null>(null);
+  const [aprehendidos, setAprehendidos] = useState<AprehendidoResumen[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -67,10 +123,14 @@ export default function BloqueActuaciones() {
     Promise.all([
       api.get<ActuacionesProcedimiento | null>(`/procedimientos/${id}/actuaciones-procedimiento`).catch(() => null),
       api.get<Procedimiento>(`/procedimientos/${id}`),
-    ]).then(([a, p]) => {
+      api
+        .get<Array<AprehendidoResumen & { tipoInterviniente: string }>>(`/procedimientos/${id}/capturados`)
+        .catch(() => []),
+    ]).then(([a, p, capturados]) => {
       if (cancelado) return;
       if (a) setDatos({ ...ACTUACIONES_VACIAS, ...soloClaves(a, CLAVES_ACTUACIONES) });
       setProcedimiento(p);
+      setAprehendidos(capturados.filter((c) => c.tipoInterviniente === "APREHENDIDO"));
       setCargando(false);
     });
     return () => {
@@ -166,21 +226,24 @@ export default function BloqueActuaciones() {
         )}
       </Seccion>
 
-      <Seccion titulo="Uso de esposas">
-        <Campo etiqueta="¿Se utilizaron esposas?" requerido>
-          <SiNo valor={datos.usoEsposas} onChange={(v) => set({ usoEsposas: v })} />
-        </Campo>
-        {datos.usoEsposas && (
-          <Campo etiqueta="Justificación del uso de esposas" requerido>
-            <textarea
-              rows={2}
-              className={claseInput}
-              value={datos.justificacionEsposas ?? ""}
-              onChange={(e) => set({ justificacionEsposas: e.target.value })}
-            />
-          </Campo>
-        )}
-      </Seccion>
+      <div>
+        <h2 className="font-display text-lg text-institucional-950">Uso de esposas</h2>
+        <p className="mt-1 font-sans text-sm text-institucional-700">
+          Pregunta individual por interviniente Aprehendido (menor de edad) — en procedimientos
+          mixtos, cada persona se responde por separado.
+        </p>
+        <div className="mt-3 space-y-3">
+          {aprehendidos.length === 0 ? (
+            <p className="rounded-lg border border-dashed border-institucional-100 bg-white px-4 py-6 text-center font-sans text-sm text-institucional-700">
+              No hay intervinientes Aprehendidos (menores de edad) en este procedimiento.
+            </p>
+          ) : (
+            aprehendidos.map((persona) => (
+              <FilaEsposas key={persona.id} procedimientoId={id} persona={persona} />
+            ))
+          )}
+        </div>
+      </div>
 
       <Seccion titulo="Estado físico">
         <Campo etiqueta="¿Presenta lesiones?" requerido>

@@ -30,6 +30,9 @@ interface ItemBloque {
 
 interface CapturadoResumen {
   id: string;
+  tipoInterviniente: "CAPTURADO" | "APREHENDIDO";
+  usoEsposas: boolean | null;
+  justificacionEsposas: string | null;
 }
 
 export default function LayoutProcedimiento({ children }: { children: React.ReactNode }) {
@@ -84,7 +87,11 @@ export default function LayoutProcedimiento({ children }: { children: React.Reac
           slug: "actuaciones",
           numero: 5,
           titulo: "Actuaciones procedimentales",
-          estado: estadoActuaciones(actuaciones, procedimiento),
+          estado: estadoActuaciones(
+            actuaciones,
+            procedimiento,
+            (capturados ?? []).filter((c) => c.tipoInterviniente === "APREHENDIDO"),
+          ),
         },
         { slug: "relato", numero: 6, titulo: "Relato de los hechos", estado: estadoRelato(actuaciones) },
       ]);
