@@ -23,3 +23,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# parches de Claude, nunca se versionan
+*.patch
+*.b64.txt
