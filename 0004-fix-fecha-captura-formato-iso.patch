@@ -1,0 +1,36 @@
+From 225d3922396bc034f2e0c89db4d7172892b8c2f2 Mon Sep 17 00:00:00 2001
+From: FPJ IA Assistant <fpj-ia@assistenceit.dev>
+Date: Sun, 2 Aug 2026 04:19:19 +0000
+Subject: [PATCH] fix(procedimientos): enviar fechaCaptura en formato ISO-8601
+ completo
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+El <input type="date"> del navegador devuelve solo 'YYYY-MM-DD'
+('2026-08-01'), pero Prisma exige un DateTime ISO-8601 completo y
+rechazaba la petición con 'PrismaClientValidationError: premature end
+of input. Expected ISO-8601 DateTime.' Se completa con la hora a
+medianoche UTC antes de enviarla (fechaCaptura y horaCaptura ya se
+manejan como campos separados en el modelo, igual que en el resto del
+sistema).
+---
+ src/app/(app)/procedimientos/nuevo/page.tsx | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/app/(app)/procedimientos/nuevo/page.tsx b/src/app/(app)/procedimientos/nuevo/page.tsx
+index 79b1700..677ef2f 100644
+--- a/src/app/(app)/procedimientos/nuevo/page.tsx
++++ b/src/app/(app)/procedimientos/nuevo/page.tsx
+@@ -30,7 +30,7 @@ export default function PaginaNuevoProcedimiento() {
+       const nuevo = await api.post<Procedimiento>("/procedimientos", {
+         delito: "Tráfico, Fabricación o Porte de Estupefacientes",
+         tipoProcedimiento,
+-        fechaCaptura,
++        fechaCaptura: `${fechaCaptura}T00:00:00.000Z`,
+         horaCaptura,
+       });
+       router.push(`/procedimientos/${nuevo.id}`);
+-- 
+2.43.0
+

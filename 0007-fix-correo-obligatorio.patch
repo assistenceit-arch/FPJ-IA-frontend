@@ -1,0 +1,64 @@
+From c12a00fb5abd86785c0a530a8bf90772504d6ffa Mon Sep 17 00:00:00 2001
+From: FPJ IA Assistant <fpj-ia@assistenceit.dev>
+Date: Mon, 3 Aug 2026 00:44:42 +0000
+Subject: [PATCH] =?UTF-8?q?fix(funcionario):=20hacer=20el=20correo=20elect?=
+ =?UTF-8?q?r=C3=B3nico=20obligatorio?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+El backend ya lo exigía desde la Fase 4 (GuardarFuncionarioActuanteDto
+tiene @IsNotEmpty() en correo), pero el frontend lo trataba como
+opcional: no lo incluía en los campos requeridos antes de autoguardar
+y el mensaje de ayuda decía lo contrario. Corregido en el formulario,
+en el cálculo del punto de estado (🟢) y en el mensaje de ayuda.
+---
+ src/app/(app)/procedimientos/[id]/funcionario/page.tsx | 5 +++--
+ src/lib/estados.ts                                     | 1 +
+ 2 files changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/src/app/(app)/procedimientos/[id]/funcionario/page.tsx b/src/app/(app)/procedimientos/[id]/funcionario/page.tsx
+index 70a12e1..9c0577a 100644
+--- a/src/app/(app)/procedimientos/[id]/funcionario/page.tsx
++++ b/src/app/(app)/procedimientos/[id]/funcionario/page.tsx
+@@ -112,6 +112,7 @@ export default function BloqueFuncionario() {
+         datos.entidad,
+         datos.cargo,
+         datos.telefono,
++        datos.correo,
+         datos.placa,
+         datos.zonaAtencion,
+         datos.estacion,
+@@ -166,7 +167,7 @@ export default function BloqueFuncionario() {
+           <div>
+             <h1 className="font-display text-2xl text-institucional-950">1. Funcionario que realiza el procedimiento</h1>
+             <p className="mt-1 font-sans text-sm text-institucional-700">
+-              Todos los campos son obligatorios, salvo el correo electrónico.
++              Todos los campos son obligatorios.
+             </p>
+           </div>
+           <IndicadorGuardado estado={estadoGuardadoFuncionario} />
+@@ -246,7 +247,7 @@ export default function BloqueFuncionario() {
+               onChange={(e) => setFuncionario({ ...funcionario, telefono: e.target.value })}
+             />
+           </Campo>
+-          <Campo etiqueta="Correo electrónico">
++          <Campo etiqueta="Correo electrónico" requerido>
+             <input
+               type="email"
+               className={claseInput}
+diff --git a/src/lib/estados.ts b/src/lib/estados.ts
+index 1faf8c3..8d93c94 100644
+--- a/src/lib/estados.ts
++++ b/src/lib/estados.ts
+@@ -12,6 +12,7 @@ export function estadoFuncionario(funcionario: FuncionarioActuante | null): Esta
+     funcionario.entidad,
+     funcionario.cargo,
+     funcionario.telefono,
++    funcionario.correo,
+     funcionario.placa,
+     funcionario.zonaAtencion,
+     funcionario.estacion,
+-- 
+2.43.0
+

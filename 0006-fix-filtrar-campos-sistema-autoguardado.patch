@@ -1,0 +1,288 @@
+From 8d31f74c9b6c2b8d041541d39f8ac41aaa0df3e3 Mon Sep 17 00:00:00 2001
+From: FPJ IA Assistant <fpj-ia@assistenceit.dev>
+Date: Mon, 3 Aug 2026 00:30:11 +0000
+Subject: [PATCH] fix(autoguardado): filtrar campos del sistema antes de
+ reenviar a la API
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Causa raíz de dos problemas reportados por el usuario probando el
+formulario real: 'Raúl' no se guardó en Funcionario tras F5, y el
+compañero de patrulla quedó permanentemente en 'No se pudo guardar'.
+
+El backend usa forbidNonWhitelisted: true (src/main.ts) — cualquier
+campo que no esté explícitamente en el DTO hace que la petición
+COMPLETA se rechace con 400. Como el estado local de cada bloque se
+inicializaba directamente con la respuesta del GET (que trae id,
+procedimientoId, createdAt, updatedAt, tipoInterviniente calculado,
+contactoNotificacion anidado...), el autoguardado reenviaba esos
+campos extra en cada PUT/PATCH y el backend los rechazaba — a veces en
+silencio (funcionario, cuyo error no tenía indicador visible más allá
+del estado 'error' genérico) y a veces de forma visible (compañero,
+donde sí se notaba el estado de error persistente).
+
+- src/lib/limpiar.ts: soloClaves() — utilidad para quedarse únicamente
+  con las claves que el DTO correspondiente acepta.
+- Aplicado en los 5 puntos donde se carga un registro existente desde
+  el backend antes de usarlo como base editable: funcionario,
+  compañero, lugar, actuaciones (Bloque 5, reutilizado también en el
+  Bloque 6 vía CLAVES_ACTUACIONES), interviniente y su contacto de
+  notificación.
+- El PATCH de interviniente además se endureció: en vez de omitir
+  manualmente 3 campos conocidos (id, tipoInterviniente, edad), ahora
+  usa una lista blanca explícita de los campos que el DTO realmente
+  acepta, más robusto ante cualquier otro campo extra que el backend
+  pueda agregar a futuro.
+---
+ .../procedimientos/[id]/actuaciones/page.tsx  |  5 ++-
+ .../procedimientos/[id]/funcionario/page.tsx  | 22 +++++++++-
+ .../intervinientes/[capturadoId]/page.tsx     | 41 ++++++++++++++++++-
+ .../(app)/procedimientos/[id]/lugar/page.tsx  |  8 +++-
+ .../(app)/procedimientos/[id]/relato/page.tsx |  5 ++-
+ src/lib/limpiar.ts                            | 18 ++++++++
+ src/lib/tipos.ts                              | 22 ++++++++++
+ 7 files changed, 112 insertions(+), 9 deletions(-)
+ create mode 100644 src/lib/limpiar.ts
+
+diff --git a/src/app/(app)/procedimientos/[id]/actuaciones/page.tsx b/src/app/(app)/procedimientos/[id]/actuaciones/page.tsx
+index 38b02d8..7643daf 100644
+--- a/src/app/(app)/procedimientos/[id]/actuaciones/page.tsx
++++ b/src/app/(app)/procedimientos/[id]/actuaciones/page.tsx
+@@ -5,8 +5,9 @@ import { useParams } from "next/navigation";
+ import { api, ApiError } from "@/lib/api";
+ import { useAutoguardado } from "@/lib/useAutoguardado";
+ import { IndicadorGuardado } from "@/components/IndicadorGuardado";
++import { soloClaves } from "@/lib/limpiar";
+ import type { ActuacionesProcedimiento, Procedimiento } from "@/lib/tipos";
+-import { ACTUACIONES_VACIAS } from "@/lib/tipos";
++import { ACTUACIONES_VACIAS, CLAVES_ACTUACIONES } from "@/lib/tipos";
+ 
+ const claseInput =
+   "block w-full rounded-md border border-institucional-100 bg-white px-3 py-2 font-sans text-sm text-institucional-950 outline-none focus:border-acento";
+@@ -67,7 +68,7 @@ export default function BloqueActuaciones() {
+       api.get<Procedimiento>(`/procedimientos/${id}`),
+     ]).then(([a, p]) => {
+       if (cancelado) return;
+-      if (a) setDatos({ ...ACTUACIONES_VACIAS, ...a });
++      if (a) setDatos({ ...ACTUACIONES_VACIAS, ...soloClaves(a, CLAVES_ACTUACIONES) });
+       setProcedimiento(p);
+       setCargando(false);
+     });
+diff --git a/src/app/(app)/procedimientos/[id]/funcionario/page.tsx b/src/app/(app)/procedimientos/[id]/funcionario/page.tsx
+index 982eee3..70a12e1 100644
+--- a/src/app/(app)/procedimientos/[id]/funcionario/page.tsx
++++ b/src/app/(app)/procedimientos/[id]/funcionario/page.tsx
+@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
+ import { api, ApiError } from "@/lib/api";
+ import { useAutoguardado } from "@/lib/useAutoguardado";
+ import { IndicadorGuardado } from "@/components/IndicadorGuardado";
++import { soloClaves } from "@/lib/limpiar";
+ import type { FuncionarioActuante, CompaneroPatrulla } from "@/lib/tipos";
+ 
+ const ENTIDADES = ["Policía Nacional", "CTI Fiscalía", "Migración Colombia", "Ejército Nacional", "Otra"];
+@@ -74,9 +75,26 @@ export default function BloqueFuncionario() {
+       api.get<CompaneroPatrulla | null>(`/procedimientos/${id}/companero-patrulla`).catch(() => null),
+     ]).then(([f, c]) => {
+       if (cancelado) return;
+-      if (f) setFuncionario({ ...FUNCIONARIO_VACIO, ...f });
++      if (f) {
++        setFuncionario({
++          ...FUNCIONARIO_VACIO,
++          ...soloClaves(f, [
++            "nombreCompleto",
++            "documento",
++            "entidad",
++            "cargo",
++            "telefono",
++            "correo",
++            "placa",
++            "zonaAtencion",
++            "estacion",
++            "servicio",
++            "cai",
++          ]),
++        });
++      }
+       if (c) {
+-        setCompanero(c);
++        setCompanero(soloClaves(c, ["nombreCompleto", "documento", "placa", "grado"]));
+         setTieneCompanero(true);
+       }
+       setCargando(false);
+diff --git a/src/app/(app)/procedimientos/[id]/intervinientes/[capturadoId]/page.tsx b/src/app/(app)/procedimientos/[id]/intervinientes/[capturadoId]/page.tsx
+index bf39e30..77b547b 100644
+--- a/src/app/(app)/procedimientos/[id]/intervinientes/[capturadoId]/page.tsx
++++ b/src/app/(app)/procedimientos/[id]/intervinientes/[capturadoId]/page.tsx
+@@ -6,6 +6,7 @@ import { useParams } from "next/navigation";
+ import { api, ApiError } from "@/lib/api";
+ import { useAutoguardado } from "@/lib/useAutoguardado";
+ import { IndicadorGuardado } from "@/components/IndicadorGuardado";
++import { soloClaves } from "@/lib/limpiar";
+ 
+ interface Capturado {
+   id: string;
+@@ -99,7 +100,17 @@ export default function EditarInterviniente() {
+       .then(([p, c]) => {
+         if (cancelado) return;
+         setPersona(p);
+-        if (c) setContacto(c);
++        if (c) {
++          setContacto(
++            soloClaves(c, [
++              "nombre",
++              "telefono",
++              "comunicacionExitosa",
++              "horaComunicacion",
++              "justificacionNoComunicacion",
++            ]),
++          );
++        }
+         setCargando(false);
+       })
+       .catch((err) => {
+@@ -114,7 +125,33 @@ export default function EditarInterviniente() {
+   const guardarPersona = useCallback(
+     async (datos: Capturado | null) => {
+       if (!datos) return;
+-      const { id: _omitido, tipoInterviniente: _t, edad: _e, ...resto } = datos;
++      const resto = soloClaves(datos, [
++        "primerNombre",
++        "segundoNombre",
++        "primerApellido",
++        "segundoApellido",
++        "tipoDocumento",
++        "numeroDocumento",
++        "expedicionDocumento",
++        "fechaNacimiento",
++        "lugarNacimiento",
++        "genero",
++        "estadoCivil",
++        "ocupacion",
++        "correo",
++        "direccion",
++        "telefono",
++        "senalesParticulares",
++        "nombrePadres",
++        "telefonoPadres",
++        "nombreAcudiente",
++        "parentescoAcudiente",
++        "telefonoAcudiente",
++        "participacionHechos",
++        "comportamientoAbordaje",
++        "identificacionPlena",
++        "formaIdentificacion",
++      ]);
+       try {
+         await api.patch(`/procedimientos/${id}/capturados/${capturadoId}`, resto);
+         setError(null);
+diff --git a/src/app/(app)/procedimientos/[id]/lugar/page.tsx b/src/app/(app)/procedimientos/[id]/lugar/page.tsx
+index 551eb1d..921cc5d 100644
+--- a/src/app/(app)/procedimientos/[id]/lugar/page.tsx
++++ b/src/app/(app)/procedimientos/[id]/lugar/page.tsx
+@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
+ import { api, ApiError } from "@/lib/api";
+ import { useAutoguardado } from "@/lib/useAutoguardado";
+ import { IndicadorGuardado } from "@/components/IndicadorGuardado";
++import { soloClaves } from "@/lib/limpiar";
+ import type { LugarProcedimiento } from "@/lib/tipos";
+ 
+ const LUGAR_VACIO: LugarProcedimiento = {
+@@ -51,7 +52,12 @@ export default function BloqueLugar() {
+       .get<LugarProcedimiento | null>(`/procedimientos/${id}/lugar-procedimiento`)
+       .then((l) => {
+         if (cancelado) return;
+-        if (l) setLugar({ ...LUGAR_VACIO, ...l });
++        if (l) {
++          setLugar({
++            ...LUGAR_VACIO,
++            ...soloClaves(l, ["departamento", "municipio", "localidad", "barrio", "direccion", "caracteristicas"]),
++          });
++        }
+         setCargando(false);
+       })
+       .catch(() => setCargando(false));
+diff --git a/src/app/(app)/procedimientos/[id]/relato/page.tsx b/src/app/(app)/procedimientos/[id]/relato/page.tsx
+index 20e2e09..a3d4e2d 100644
+--- a/src/app/(app)/procedimientos/[id]/relato/page.tsx
++++ b/src/app/(app)/procedimientos/[id]/relato/page.tsx
+@@ -5,8 +5,9 @@ import { useParams } from "next/navigation";
+ import { api, ApiError } from "@/lib/api";
+ import { useAutoguardado } from "@/lib/useAutoguardado";
+ import { IndicadorGuardado } from "@/components/IndicadorGuardado";
++import { soloClaves } from "@/lib/limpiar";
+ import type { ActuacionesProcedimiento } from "@/lib/tipos";
+-import { ACTUACIONES_VACIAS } from "@/lib/tipos";
++import { ACTUACIONES_VACIAS, CLAVES_ACTUACIONES } from "@/lib/tipos";
+ 
+ const claseInput =
+   "block w-full rounded-md border border-institucional-100 bg-white px-3 py-2 font-sans text-sm text-institucional-950 outline-none focus:border-acento";
+@@ -58,7 +59,7 @@ export default function BloqueRelato() {
+       .then((a) => {
+         if (cancelado) return;
+         if (a) {
+-          setDatos({ ...ACTUACIONES_VACIAS, ...a });
++          setDatos({ ...ACTUACIONES_VACIAS, ...soloClaves(a, CLAVES_ACTUACIONES) });
+         } else {
+           setFaltaBloque5(true);
+         }
+diff --git a/src/lib/limpiar.ts b/src/lib/limpiar.ts
+new file mode 100644
+index 0000000..8a7a727
+--- /dev/null
++++ b/src/lib/limpiar.ts
+@@ -0,0 +1,18 @@
++/**
++ * Devuelve un nuevo objeto que solo contiene las claves indicadas.
++ *
++ * El backend usa `forbidNonWhitelisted: true` (ver src/main.ts del
++ * repositorio backend): cualquier campo que no esté explícitamente en el
++ * DTO hace que la petición completa se rechace con 400. Como el GET nos
++ * devuelve el registro completo (incluyendo id, procedimientoId,
++ * createdAt, updatedAt...), hay que "limpiarlo" antes de usarlo como
++ * base para un PUT/PATCH — de lo contrario el autoguardado falla en
++ * silencio (o no tan en silencio: queda en estado "error").
++ */
++export function soloClaves<T extends object, K extends keyof T>(objeto: T, claves: readonly K[]): Pick<T, K> {
++  const resultado = {} as Pick<T, K>;
++  for (const clave of claves) {
++    if (clave in objeto) resultado[clave] = objeto[clave];
++  }
++  return resultado;
++}
+diff --git a/src/lib/tipos.ts b/src/lib/tipos.ts
+index 93375f0..52133f3 100644
+--- a/src/lib/tipos.ts
++++ b/src/lib/tipos.ts
+@@ -70,6 +70,28 @@ export interface ActuacionesProcedimiento {
+   observacionAdicional?: string;
+ }
+ 
++export const CLAVES_ACTUACIONES = [
++  "derechosLeidos",
++  "fechaDerechos",
++  "horaDerechos",
++  "comprendeDerechos",
++  "usoEsposas",
++  "justificacionEsposas",
++  "presentaLesiones",
++  "descripcionLesiones",
++  "trasladoCentroAsistencial",
++  "centroAsistencial",
++  "motivoTraslado",
++  "autoridadReceptora",
++  "justificacionDemora",
++  "observacionInicial",
++  "desarrolloIntervencion",
++  "tieneCircunstanciaRelevante",
++  "circunstanciaRelevante",
++  "tieneObservacionAdicional",
++  "observacionAdicional",
++] as const;
++
+ export const ACTUACIONES_VACIAS: ActuacionesProcedimiento = {
+   derechosLeidos: false,
+   fechaDerechos: "",
+-- 
+2.43.0
+

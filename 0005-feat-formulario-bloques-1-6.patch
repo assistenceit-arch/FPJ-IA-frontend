@@ -1,0 +1,2570 @@
+From 8b2c78075d47c0a5723de43b9ce9d35d6facb0d2 Mon Sep 17 00:00:00 2001
+From: FPJ IA Assistant <fpj-ia@assistenceit.dev>
+Date: Sun, 2 Aug 2026 23:41:33 +0000
+Subject: [PATCH] =?UTF-8?q?feat:=20formulario=20=C3=BAnico=20completo=20?=
+ =?UTF-8?q?=E2=80=94=20Bloques=201=20a=206?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Construye el corazón del sistema: los 6 bloques del Formulario Maestro,
+con navegación libre entre ellos (WF-M1-007/008), autoguardado con
+debounce (WF-M1-004/005, sin botones manuales de guardado) e
+indicadores de estado 🟢🟡🔴 (UI-014/026) en la barra lateral.
+
+- src/lib/useAutoguardado.ts: hook reutilizable de autoguardado con
+  debounce (1.2s) + guardado inmediato al abandonar la pantalla
+  (UI-010), usado en los 6 bloques.
+- src/lib/estados.ts: cálculo del estado de cada bloque a partir de sus
+  campos obligatorios.
+- src/app/(app)/procedimientos/[id]/layout.tsx: navegación lateral con
+  los 6 bloques y sus indicadores de estado, consultados de forma
+  independiente y tolerante a fallos entre sí.
+
+Bloque 1 — Funcionario y compañero de patrulla: formulario completo con
+  las listas desplegables de Entidad y Servicio (con 'Otra' -> campo de
+  descripción libre, UI-012), y el compañero como sección opcional con
+  botón de agregar/quitar (UI-015).
+Bloque 2 — Intervinientes: listado + creación rápida (datos mínimos) +
+  edición completa (identificación, personal, contacto, señales,
+  familiar, persona a informar con Sí/No condicional, acudiente si es
+  adolescente, y los campos individuales de participación/comportamiento
+  del Bloque 5/6 por persona).
+Bloque 3 — Lugar del procedimiento: formulario simple, completo.
+Bloque 4 — Elementos incautados: listado agrupado por interviniente +
+  formulario de alta con campos dinámicos según el tipo (Sustancia,
+  Dinero, Celular, Otro), tal como UI-027 a UI-035.
+Bloque 5 — Actuaciones procedimentales: derechos, esposas, lesiones,
+  centro asistencial y puesta a disposición, cada uno con su sección
+  condicional Sí/No: obligatoria (UI-038 a UI-045). La fecha/hora de
+  disposición se guarda aparte contra el procedimiento (PATCH), ya que
+  pertenece a esa entidad, no a actuaciones.
+Bloque 6 — Relato de los hechos: comparte el mismo registro que el
+  Bloque 5 en el backend; se avisa al usuario si intenta guardar el
+  relato antes de completar las actuaciones obligatorias.
+
+Verificado: 'npm run build' compila sin errores, 14 rutas generadas.
+---
+ .../procedimientos/[id]/actuaciones/page.tsx  | 272 ++++++++++
+ .../procedimientos/[id]/elementos/page.tsx    | 376 +++++++++++++
+ .../procedimientos/[id]/funcionario/page.tsx  | 340 ++++++++++++
+ .../intervinientes/[capturadoId]/page.tsx     | 497 ++++++++++++++++++
+ .../[id]/intervinientes/nuevo/page.tsx        | 115 ++++
+ .../[id]/intervinientes/page.tsx              | 102 ++++
+ src/app/(app)/procedimientos/[id]/layout.tsx  |  94 ++++
+ .../(app)/procedimientos/[id]/lugar/page.tsx  | 158 ++++++
+ src/app/(app)/procedimientos/[id]/page.tsx    |  54 +-
+ .../(app)/procedimientos/[id]/relato/page.tsx | 192 +++++++
+ src/components/IndicadorGuardado.tsx          |  19 +
+ src/lib/estados.ts                            |  38 ++
+ src/lib/tipos.ts                              |  71 ++-
+ src/lib/useAutoguardado.ts                    |  71 +++
+ 14 files changed, 2347 insertions(+), 52 deletions(-)
+ create mode 100644 src/app/(app)/procedimientos/[id]/actuaciones/page.tsx
+ create mode 100644 src/app/(app)/procedimientos/[id]/elementos/page.tsx
+ create mode 100644 src/app/(app)/procedimientos/[id]/funcionario/page.tsx
+ create mode 100644 src/app/(app)/procedimientos/[id]/intervinientes/[capturadoId]/page.tsx
+ create mode 100644 src/app/(app)/procedimientos/[id]/intervinientes/nuevo/page.tsx
+ create mode 100644 src/app/(app)/procedimientos/[id]/intervinientes/page.tsx
+ create mode 100644 src/app/(app)/procedimientos/[id]/layout.tsx
+ create mode 100644 src/app/(app)/procedimientos/[id]/lugar/page.tsx
+ create mode 100644 src/app/(app)/procedimientos/[id]/relato/page.tsx
+ create mode 100644 src/components/IndicadorGuardado.tsx
+ create mode 100644 src/lib/estados.ts
+ create mode 100644 src/lib/useAutoguardado.ts
+
+diff --git a/src/app/(app)/procedimientos/[id]/actuaciones/page.tsx b/src/app/(app)/procedimientos/[id]/actuaciones/page.tsx
+new file mode 100644
+index 0000000..38b02d8
+--- /dev/null
++++ b/src/app/(app)/procedimientos/[id]/actuaciones/page.tsx
+@@ -0,0 +1,272 @@
++"use client";
++
++import { useEffect, useState, useCallback } from "react";
++import { useParams } from "next/navigation";
++import { api, ApiError } from "@/lib/api";
++import { useAutoguardado } from "@/lib/useAutoguardado";
++import { IndicadorGuardado } from "@/components/IndicadorGuardado";
++import type { ActuacionesProcedimiento, Procedimiento } from "@/lib/tipos";
++import { ACTUACIONES_VACIAS } from "@/lib/tipos";
++
++const claseInput =
++  "block w-full rounded-md border border-institucional-100 bg-white px-3 py-2 font-sans text-sm text-institucional-950 outline-none focus:border-acento";
++
++function Campo({ etiqueta, requerido, children }: { etiqueta: string; requerido?: boolean; children: React.ReactNode }) {
++  return (
++    <label className="block">
++      <span className="mb-1 block font-sans text-sm font-medium text-institucional-900">
++        {etiqueta}
++        {requerido && <span className="text-estado-error"> *</span>}
++      </span>
++      {children}
++    </label>
++  );
++}
++
++function SiNo({ valor, onChange }: { valor: boolean; onChange: (v: boolean) => void }) {
++  return (
++    <div className="flex gap-3">
++      {[true, false].map((v) => (
++        <button
++          type="button"
++          key={String(v)}
++          onClick={() => onChange(v)}
++          className={`rounded-md border px-4 py-2 font-sans text-sm transition-colors ${
++            valor === v
++              ? "border-acento bg-acento-light text-acento-hover"
++              : "border-institucional-100 text-institucional-700 hover:bg-institucional-50"
++          }`}
++        >
++          {v ? "Sí" : "No"}
++        </button>
++      ))}
++    </div>
++  );
++}
++
++function Seccion({ titulo, children }: { titulo: string; children: React.ReactNode }) {
++  return (
++    <div className="rounded-lg border border-institucional-100 bg-white p-6 shadow-sm">
++      <h2 className="font-display text-lg text-institucional-950">{titulo}</h2>
++      <div className="mt-4 space-y-4">{children}</div>
++    </div>
++  );
++}
++
++export default function BloqueActuaciones() {
++  const { id } = useParams<{ id: string }>();
++  const [cargando, setCargando] = useState(true);
++  const [datos, setDatos] = useState<ActuacionesProcedimiento>(ACTUACIONES_VACIAS);
++  const [procedimiento, setProcedimiento] = useState<Procedimiento | null>(null);
++  const [error, setError] = useState<string | null>(null);
++
++  useEffect(() => {
++    let cancelado = false;
++    Promise.all([
++      api.get<ActuacionesProcedimiento | null>(`/procedimientos/${id}/actuaciones-procedimiento`).catch(() => null),
++      api.get<Procedimiento>(`/procedimientos/${id}`),
++    ]).then(([a, p]) => {
++      if (cancelado) return;
++      if (a) setDatos({ ...ACTUACIONES_VACIAS, ...a });
++      setProcedimiento(p);
++      setCargando(false);
++    });
++    return () => {
++      cancelado = true;
++    };
++  }, [id]);
++
++  const guardar = useCallback(
++    async (valor: ActuacionesProcedimiento) => {
++      if (!valor.fechaDerechos || !valor.horaDerechos || !valor.autoridadReceptora?.trim()) return;
++      try {
++        await api.put(`/procedimientos/${id}/actuaciones-procedimiento`, valor);
++        setError(null);
++      } catch (err) {
++        setError(err instanceof ApiError ? err.message : "No fue posible guardar las actuaciones.");
++        throw err;
++      }
++    },
++    [id],
++  );
++  const { estado: estadoGuardado } = useAutoguardado(datos, guardar, { activo: !cargando });
++
++  const guardarDisposicion = useCallback(
++    async (p: Procedimiento | null) => {
++      if (!p || !p.fechaDisposicion || !p.horaDisposicion) return;
++      await api.patch(`/procedimientos/${id}`, {
++        fechaDisposicion: p.fechaDisposicion,
++        horaDisposicion: p.horaDisposicion,
++      });
++    },
++    [id],
++  );
++  const { estado: estadoDisposicion } = useAutoguardado(procedimiento, guardarDisposicion, { activo: !cargando });
++
++  const set = (cambios: Partial<ActuacionesProcedimiento>) => setDatos({ ...datos, ...cambios });
++
++  if (cargando) return <p className="font-sans text-sm text-institucional-700">Cargando…</p>;
++
++  return (
++    <div className="space-y-6">
++      <div className="flex items-center justify-between">
++        <div>
++          <h1 className="font-display text-2xl text-institucional-950">5. Actuaciones procedimentales</h1>
++          <p className="mt-1 font-sans text-sm text-institucional-700">
++            Todo lo ocurrido desde la captura/aprehensión hasta la puesta a disposición.
++          </p>
++        </div>
++        <IndicadorGuardado estado={estadoGuardado} />
++      </div>
++
++      {error && (
++        <p role="alert" className="font-sans text-sm text-estado-error">
++          {error}
++        </p>
++      )}
++
++      <Seccion titulo="Captura o aprehensión (solo lectura)">
++        <p className="font-sans text-sm text-institucional-700">
++          {new Date(procedimiento!.fechaCaptura).toLocaleDateString("es-CO")} · {procedimiento!.horaCaptura}
++        </p>
++      </Seccion>
++
++      <Seccion titulo="Lectura de derechos">
++        <Campo etiqueta="¿Se le leyeron los derechos?" requerido>
++          <SiNo valor={datos.derechosLeidos} onChange={(v) => set({ derechosLeidos: v })} />
++        </Campo>
++        {datos.derechosLeidos && (
++          <>
++            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
++              <Campo etiqueta="Fecha de lectura de derechos" requerido>
++                <input
++                  type="date"
++                  className={claseInput}
++                  value={datos.fechaDerechos?.slice(0, 10) ?? ""}
++                  onChange={(e) => set({ fechaDerechos: `${e.target.value}T00:00:00.000Z` })}
++                />
++              </Campo>
++              <Campo etiqueta="Hora de lectura de derechos" requerido>
++                <input
++                  type="time"
++                  className={claseInput}
++                  value={datos.horaDerechos}
++                  onChange={(e) => set({ horaDerechos: e.target.value })}
++                />
++              </Campo>
++            </div>
++            <Campo etiqueta="¿Comprendió los derechos informados?" requerido>
++              <SiNo valor={datos.comprendeDerechos} onChange={(v) => set({ comprendeDerechos: v })} />
++            </Campo>
++          </>
++        )}
++      </Seccion>
++
++      <Seccion titulo="Uso de esposas">
++        <Campo etiqueta="¿Se utilizaron esposas?" requerido>
++          <SiNo valor={datos.usoEsposas} onChange={(v) => set({ usoEsposas: v })} />
++        </Campo>
++        {datos.usoEsposas && (
++          <Campo etiqueta="Justificación del uso de esposas" requerido>
++            <textarea
++              rows={2}
++              className={claseInput}
++              value={datos.justificacionEsposas ?? ""}
++              onChange={(e) => set({ justificacionEsposas: e.target.value })}
++            />
++          </Campo>
++        )}
++      </Seccion>
++
++      <Seccion titulo="Estado físico">
++        <Campo etiqueta="¿Presenta lesiones?" requerido>
++          <SiNo valor={datos.presentaLesiones} onChange={(v) => set({ presentaLesiones: v })} />
++        </Campo>
++        {datos.presentaLesiones && (
++          <Campo etiqueta="Descripción de las lesiones" requerido>
++            <textarea
++              rows={2}
++              className={claseInput}
++              value={datos.descripcionLesiones ?? ""}
++              onChange={(e) => set({ descripcionLesiones: e.target.value })}
++            />
++          </Campo>
++        )}
++      </Seccion>
++
++      <Seccion titulo="Centro asistencial">
++        <Campo etiqueta="¿Fue trasladado a centro asistencial?" requerido>
++          <SiNo valor={datos.trasladoCentroAsistencial} onChange={(v) => set({ trasladoCentroAsistencial: v })} />
++        </Campo>
++        {datos.trasladoCentroAsistencial && (
++          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
++            <Campo etiqueta="Nombre del centro asistencial" requerido>
++              <input
++                className={claseInput}
++                value={datos.centroAsistencial ?? ""}
++                onChange={(e) => set({ centroAsistencial: e.target.value })}
++              />
++            </Campo>
++            <Campo etiqueta="Motivo del traslado" requerido>
++              <input
++                className={claseInput}
++                value={datos.motivoTraslado ?? ""}
++                onChange={(e) => set({ motivoTraslado: e.target.value })}
++              />
++            </Campo>
++          </div>
++        )}
++      </Seccion>
++
++      <div>
++        <div className="flex items-center justify-between">
++          <h2 className="font-display text-lg text-institucional-950">Puesta a disposición</h2>
++          <IndicadorGuardado estado={estadoDisposicion} />
++        </div>
++        <div className="mt-4 grid grid-cols-1 gap-4 rounded-lg border border-institucional-100 bg-white p-6 shadow-sm sm:grid-cols-3">
++          <Campo etiqueta="Fecha" requerido>
++            <input
++              type="date"
++              className={claseInput}
++              value={procedimiento?.fechaDisposicion?.slice(0, 10) ?? ""}
++              onChange={(e) =>
++                setProcedimiento(
++                  procedimiento && { ...procedimiento, fechaDisposicion: `${e.target.value}T00:00:00.000Z` },
++                )
++              }
++            />
++          </Campo>
++          <Campo etiqueta="Hora" requerido>
++            <input
++              type="time"
++              className={claseInput}
++              value={procedimiento?.horaDisposicion ?? ""}
++              onChange={(e) => setProcedimiento(procedimiento && { ...procedimiento, horaDisposicion: e.target.value })}
++            />
++          </Campo>
++          <Campo etiqueta="Autoridad receptora" requerido>
++            <input
++              className={claseInput}
++              value={datos.autoridadReceptora}
++              onChange={(e) => set({ autoridadReceptora: e.target.value })}
++            />
++          </Campo>
++        </div>
++        <p className="mt-2 font-sans text-xs text-institucional-700">
++          El sistema calculará automáticamente si hubo demora entre la captura y la puesta a
++          disposición. Si la hay, deja la justificación abajo.
++        </p>
++        <div className="mt-3 rounded-lg border border-institucional-100 bg-white p-6 shadow-sm">
++          <Campo etiqueta="Justificación de la demora (si aplica)">
++            <textarea
++              rows={2}
++              className={claseInput}
++              value={datos.justificacionDemora ?? ""}
++              onChange={(e) => set({ justificacionDemora: e.target.value })}
++            />
++          </Campo>
++        </div>
++      </div>
++    </div>
++  );
++}
+diff --git a/src/app/(app)/procedimientos/[id]/elementos/page.tsx b/src/app/(app)/procedimientos/[id]/elementos/page.tsx
+new file mode 100644
+index 0000000..198ab61
+--- /dev/null
++++ b/src/app/(app)/procedimientos/[id]/elementos/page.tsx
+@@ -0,0 +1,376 @@
++"use client";
++
++import { useEffect, useState, FormEvent } from "react";
++import { useParams } from "next/navigation";
++import { api, ApiError } from "@/lib/api";
++
++interface CapturadoResumen {
++  id: string;
++  primerNombre: string;
++  primerApellido: string;
++}
++
++interface Elemento {
++  id: string;
++  tipoElemento: "SUSTANCIA" | "DINERO" | "CELULAR" | "OTRO";
++  descripcionBase: string;
++  ubicacionHallazgo: string | null;
++  direccionIncautacion: string;
++}
++
++const claseInput =
++  "block w-full rounded-md border border-institucional-100 bg-white px-3 py-2 font-sans text-sm text-institucional-950 outline-none focus:border-acento";
++
++function Campo({ etiqueta, requerido, children }: { etiqueta: string; requerido?: boolean; children: React.ReactNode }) {
++  return (
++    <label className="block">
++      <span className="mb-1 block font-sans text-sm font-medium text-institucional-900">
++        {etiqueta}
++        {requerido && <span className="text-estado-error"> *</span>}
++      </span>
++      {children}
++    </label>
++  );
++}
++
++export default function BloqueElementos() {
++  const { id } = useParams<{ id: string }>();
++  const [intervinientes, setIntervinientes] = useState<CapturadoResumen[]>([]);
++  const [elementosPorPersona, setElementosPorPersona] = useState<Record<string, Elemento[]>>({});
++  const [cargando, setCargando] = useState(true);
++  const [error, setError] = useState<string | null>(null);
++  const [mostrarFormulario, setMostrarFormulario] = useState(false);
++
++  async function cargarTodo() {
++    const personas = await api.get<CapturadoResumen[]>(`/procedimientos/${id}/capturados`);
++    setIntervinientes(personas);
++    const listas = await Promise.all(
++      personas.map((p) => api.get<Elemento[]>(`/procedimientos/${id}/capturados/${p.id}/elementos`)),
++    );
++    const mapa: Record<string, Elemento[]> = {};
++    personas.forEach((p, i) => (mapa[p.id] = listas[i]));
++    setElementosPorPersona(mapa);
++    setCargando(false);
++  }
++
++  useEffect(() => {
++    cargarTodo().catch((err) =>
++      setError(err instanceof ApiError ? err.message : "No fue posible cargar los elementos."),
++    );
++    // eslint-disable-next-line react-hooks/exhaustive-deps
++  }, [id]);
++
++  async function eliminarElemento(capturadoId: string, elementoId: string) {
++    if (!confirm("¿Eliminar este elemento?")) return;
++    try {
++      await api.delete(`/procedimientos/${id}/capturados/${capturadoId}/elementos/${elementoId}`);
++      await cargarTodo();
++    } catch (err) {
++      setError(err instanceof ApiError ? err.message : "No fue posible eliminar el elemento.");
++    }
++  }
++
++  if (cargando) return <p className="font-sans text-sm text-institucional-700">Cargando…</p>;
++
++  return (
++    <div>
++      <div className="flex items-center justify-between">
++        <div>
++          <h1 className="font-display text-2xl text-institucional-950">4. Elementos incautados</h1>
++          <p className="mt-1 font-sans text-sm text-institucional-700">
++            Cada elemento debe asociarse a un interviniente específico.
++          </p>
++        </div>
++        {intervinientes.length > 0 && (
++          <button
++            type="button"
++            onClick={() => setMostrarFormulario(true)}
++            className="rounded-md bg-acento px-4 py-2.5 font-sans text-sm font-semibold text-white shadow-sm transition-colors hover:bg-acento-hover"
++          >
++            + Agregar elemento
++          </button>
++        )}
++      </div>
++
++      {error && (
++        <p role="alert" className="mt-4 font-sans text-sm text-estado-error">
++          {error}
++        </p>
++      )}
++
++      {intervinientes.length === 0 && (
++        <div className="mt-6 rounded-lg border border-dashed border-institucional-100 bg-white px-6 py-14 text-center">
++          <p className="font-display text-lg text-institucional-950">
++            Primero registra al menos un interviniente
++          </p>
++          <p className="mt-1 font-sans text-sm text-institucional-700">
++            Los elementos incautados se asocian siempre a una persona (Bloque 2).
++          </p>
++        </div>
++      )}
++
++      {mostrarFormulario && (
++        <FormularioNuevoElemento
++          procedimientoId={id}
++          intervinientes={intervinientes}
++          onCancelar={() => setMostrarFormulario(false)}
++          onCreado={async () => {
++            setMostrarFormulario(false);
++            await cargarTodo();
++          }}
++        />
++      )}
++
++      <div className="mt-6 space-y-6">
++        {intervinientes.map((persona) => {
++          const elementos = elementosPorPersona[persona.id] ?? [];
++          return (
++            <div key={persona.id}>
++              <h2 className="font-display text-lg text-institucional-950">
++                {persona.primerNombre} {persona.primerApellido}
++              </h2>
++              {elementos.length === 0 ? (
++                <p className="mt-1 font-sans text-sm text-institucional-700">Sin elementos registrados.</p>
++              ) : (
++                <ul className="mt-2 divide-y divide-institucional-100 rounded-lg border border-institucional-100 bg-white shadow-sm">
++                  {elementos.map((el) => (
++                    <li key={el.id} className="flex items-center justify-between gap-4 px-5 py-3">
++                      <div>
++                        <p className="font-sans text-xs font-semibold uppercase tracking-wide text-institucional-700">
++                          {el.tipoElemento}
++                        </p>
++                        <p className="mt-0.5 font-sans text-sm text-institucional-950">{el.descripcionBase}</p>
++                      </div>
++                      <button
++                        type="button"
++                        onClick={() => eliminarElemento(persona.id, el.id)}
++                        className="shrink-0 font-sans text-xs text-estado-error hover:underline"
++                      >
++                        Eliminar
++                      </button>
++                    </li>
++                  ))}
++                </ul>
++              )}
++            </div>
++          );
++        })}
++      </div>
++    </div>
++  );
++}
++
++function FormularioNuevoElemento({
++  procedimientoId,
++  intervinientes,
++  onCancelar,
++  onCreado,
++}: {
++  procedimientoId: string;
++  intervinientes: CapturadoResumen[];
++  onCancelar: () => void;
++  onCreado: () => void;
++}) {
++  const [capturadoId, setCapturadoId] = useState(intervinientes[0]?.id ?? "");
++  const [tipoElemento, setTipoElemento] = useState<"SUSTANCIA" | "DINERO" | "CELULAR" | "OTRO">("SUSTANCIA");
++  const [ubicacionHallazgo, setUbicacionHallazgo] = useState("");
++  const [direccionIncautacion, setDireccionIncautacion] = useState("");
++  const [cantidadEmpaques, setCantidadEmpaques] = useState("");
++  const [tipoSustancia, setTipoSustancia] = useState("");
++  const [color, setColor] = useState("");
++  const [caracteristicas, setCaracteristicas] = useState("");
++  const [valorTotal, setValorTotal] = useState("");
++  const [denominaciones, setDenominaciones] = useState("");
++  const [marca, setMarca] = useState("");
++  const [imei, setImei] = useState("");
++  const [descripcionManual, setDescripcionManual] = useState("");
++  const [cargando, setCargando] = useState(false);
++  const [error, setError] = useState<string | null>(null);
++
++  async function manejarEnvio(evento: FormEvent) {
++    evento.preventDefault();
++    setError(null);
++    setCargando(true);
++    try {
++      const cuerpo: Record<string, unknown> = {
++        tipoElemento,
++        ubicacionHallazgo: ubicacionHallazgo || undefined,
++        direccionIncautacion,
++      };
++      if (tipoElemento === "SUSTANCIA") {
++        Object.assign(cuerpo, {
++          cantidadEmpaques: Number(cantidadEmpaques),
++          tipoSustancia,
++          color,
++          caracteristicas,
++        });
++      } else if (tipoElemento === "DINERO") {
++        Object.assign(cuerpo, { valorTotal: Number(valorTotal), denominaciones });
++      } else if (tipoElemento === "CELULAR") {
++        Object.assign(cuerpo, { marca, color, imei: imei || undefined });
++      } else {
++        Object.assign(cuerpo, { descripcionManual });
++      }
++
++      await api.post(`/procedimientos/${procedimientoId}/capturados/${capturadoId}/elementos`, cuerpo);
++      onCreado();
++    } catch (err) {
++      setError(err instanceof ApiError ? err.message : "No fue posible registrar el elemento.");
++    } finally {
++      setCargando(false);
++    }
++  }
++
++  return (
++    <form
++      onSubmit={manejarEnvio}
++      className="mt-6 space-y-4 rounded-lg border border-institucional-100 bg-white p-6 shadow-sm"
++    >
++      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
++        <Campo etiqueta="Interviniente" requerido>
++          <select className={claseInput} value={capturadoId} onChange={(e) => setCapturadoId(e.target.value)}>
++            {intervinientes.map((p) => (
++              <option key={p.id} value={p.id}>
++                {p.primerNombre} {p.primerApellido}
++              </option>
++            ))}
++          </select>
++        </Campo>
++        <Campo etiqueta="Tipo de elemento" requerido>
++          <select
++            className={claseInput}
++            value={tipoElemento}
++            onChange={(e) => setTipoElemento(e.target.value as typeof tipoElemento)}
++          >
++            <option value="SUSTANCIA">Sustancia</option>
++            <option value="DINERO">Dinero</option>
++            <option value="CELULAR">Celular</option>
++            <option value="OTRO">Otro</option>
++          </select>
++        </Campo>
++      </div>
++
++      {tipoElemento === "SUSTANCIA" && (
++        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
++          <Campo etiqueta="Cantidad de empaques" requerido>
++            <input
++              type="number"
++              min={1}
++              required
++              className={claseInput}
++              value={cantidadEmpaques}
++              onChange={(e) => setCantidadEmpaques(e.target.value)}
++            />
++          </Campo>
++          <Campo etiqueta="Tipo de sustancia" requerido>
++            <input required className={claseInput} value={tipoSustancia} onChange={(e) => setTipoSustancia(e.target.value)} />
++          </Campo>
++          <Campo etiqueta="Color" requerido>
++            <input required className={claseInput} value={color} onChange={(e) => setColor(e.target.value)} />
++          </Campo>
++          <Campo etiqueta="Características similares a" requerido>
++            <input
++              required
++              className={claseInput}
++              value={caracteristicas}
++              onChange={(e) => setCaracteristicas(e.target.value)}
++              placeholder="Ej. la marihuana"
++            />
++          </Campo>
++        </div>
++      )}
++
++      {tipoElemento === "DINERO" && (
++        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
++          <Campo etiqueta="Valor total" requerido>
++            <input
++              type="number"
++              min={0}
++              required
++              className={claseInput}
++              value={valorTotal}
++              onChange={(e) => setValorTotal(e.target.value)}
++            />
++          </Campo>
++          <Campo etiqueta="Denominaciones" requerido>
++            <input
++              required
++              className={claseInput}
++              value={denominaciones}
++              onChange={(e) => setDenominaciones(e.target.value)}
++              placeholder="Ej. 2 billetes de $50.000..."
++            />
++          </Campo>
++        </div>
++      )}
++
++      {tipoElemento === "CELULAR" && (
++        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
++          <Campo etiqueta="Marca" requerido>
++            <input required className={claseInput} value={marca} onChange={(e) => setMarca(e.target.value)} />
++          </Campo>
++          <Campo etiqueta="Color" requerido>
++            <input required className={claseInput} value={color} onChange={(e) => setColor(e.target.value)} />
++          </Campo>
++          <Campo etiqueta="IMEI (si es visible)">
++            <input className={claseInput} value={imei} onChange={(e) => setImei(e.target.value)} />
++          </Campo>
++        </div>
++      )}
++
++      {tipoElemento === "OTRO" && (
++        <Campo etiqueta="Descripción detallada del elemento" requerido>
++          <textarea
++            required
++            rows={2}
++            className={claseInput}
++            value={descripcionManual}
++            onChange={(e) => setDescripcionManual(e.target.value)}
++          />
++        </Campo>
++      )}
++
++      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
++        <Campo etiqueta="Ubicación exacta de hallazgo">
++          <input
++            className={claseInput}
++            value={ubicacionHallazgo}
++            onChange={(e) => setUbicacionHallazgo(e.target.value)}
++            placeholder="Ej. Bolsillo delantero derecho del pantalón"
++          />
++        </Campo>
++        <Campo etiqueta="Dirección de incautación" requerido>
++          <input
++            required
++            className={claseInput}
++            value={direccionIncautacion}
++            onChange={(e) => setDireccionIncautacion(e.target.value)}
++          />
++        </Campo>
++      </div>
++
++      {error && (
++        <p role="alert" className="font-sans text-sm text-estado-error">
++          {error}
++        </p>
++      )}
++
++      <div className="flex gap-3">
++        <button
++          type="submit"
++          disabled={cargando}
++          className="rounded-md bg-acento px-4 py-2.5 font-sans text-sm font-semibold text-white shadow-sm transition-colors hover:bg-acento-hover disabled:cursor-not-allowed disabled:opacity-60"
++        >
++          {cargando ? "Guardando…" : "Guardar elemento"}
++        </button>
++        <button
++          type="button"
++          onClick={onCancelar}
++          className="rounded-md border border-institucional-100 px-4 py-2.5 font-sans text-sm text-institucional-900 transition-colors hover:bg-institucional-50"
++        >
++          Cancelar
++        </button>
++      </div>
++    </form>
++  );
++}
+diff --git a/src/app/(app)/procedimientos/[id]/funcionario/page.tsx b/src/app/(app)/procedimientos/[id]/funcionario/page.tsx
+new file mode 100644
+index 0000000..982eee3
+--- /dev/null
++++ b/src/app/(app)/procedimientos/[id]/funcionario/page.tsx
+@@ -0,0 +1,340 @@
++"use client";
++
++import { useEffect, useState, useCallback } from "react";
++import { useParams } from "next/navigation";
++import { api, ApiError } from "@/lib/api";
++import { useAutoguardado } from "@/lib/useAutoguardado";
++import { IndicadorGuardado } from "@/components/IndicadorGuardado";
++import type { FuncionarioActuante, CompaneroPatrulla } from "@/lib/tipos";
++
++const ENTIDADES = ["Policía Nacional", "CTI Fiscalía", "Migración Colombia", "Ejército Nacional", "Otra"];
++const SERVICIOS = [
++  "Labores de Patrullaje",
++  "Verificación de Antecedentes",
++  "Registro a Personas",
++  "Puesto de Control",
++  "Solicitud de Antecedentes",
++  "Apoyo a Otra Unidad",
++  "Actividad Preventiva",
++  "Otra",
++];
++
++const FUNCIONARIO_VACIO: FuncionarioActuante = {
++  nombreCompleto: "",
++  documento: "",
++  entidad: ENTIDADES[0],
++  cargo: "",
++  telefono: "",
++  correo: "",
++  placa: "",
++  zonaAtencion: "",
++  estacion: "",
++  servicio: SERVICIOS[0],
++  cai: "",
++};
++
++const COMPANERO_VACIO: CompaneroPatrulla = { nombreCompleto: "", documento: "", placa: "", grado: "" };
++
++function Campo({
++  etiqueta,
++  requerido,
++  children,
++}: {
++  etiqueta: string;
++  requerido?: boolean;
++  children: React.ReactNode;
++}) {
++  return (
++    <label className="block">
++      <span className="mb-1 block font-sans text-sm font-medium text-institucional-900">
++        {etiqueta}
++        {requerido && <span className="text-estado-error"> *</span>}
++      </span>
++      {children}
++    </label>
++  );
++}
++
++const claseInput =
++  "block w-full rounded-md border border-institucional-100 bg-white px-3 py-2 font-sans text-sm text-institucional-950 outline-none focus:border-acento";
++
++export default function BloqueFuncionario() {
++  const { id } = useParams<{ id: string }>();
++  const [cargando, setCargando] = useState(true);
++  const [funcionario, setFuncionario] = useState<FuncionarioActuante>(FUNCIONARIO_VACIO);
++  const [servicioOtro, setServicioOtro] = useState("");
++  const [companero, setCompanero] = useState<CompaneroPatrulla | null>(null);
++  const [tieneCompanero, setTieneCompanero] = useState(false);
++  const [error, setError] = useState<string | null>(null);
++
++  useEffect(() => {
++    let cancelado = false;
++    Promise.all([
++      api.get<FuncionarioActuante | null>(`/procedimientos/${id}/funcionario-actuante`).catch(() => null),
++      api.get<CompaneroPatrulla | null>(`/procedimientos/${id}/companero-patrulla`).catch(() => null),
++    ]).then(([f, c]) => {
++      if (cancelado) return;
++      if (f) setFuncionario({ ...FUNCIONARIO_VACIO, ...f });
++      if (c) {
++        setCompanero(c);
++        setTieneCompanero(true);
++      }
++      setCargando(false);
++    });
++    return () => {
++      cancelado = true;
++    };
++  }, [id]);
++
++  const guardarFuncionario = useCallback(
++    async (datos: FuncionarioActuante) => {
++      const requeridos = [
++        datos.nombreCompleto,
++        datos.documento,
++        datos.entidad,
++        datos.cargo,
++        datos.telefono,
++        datos.placa,
++        datos.zonaAtencion,
++        datos.estacion,
++        datos.servicio,
++      ];
++      if (!requeridos.every((v) => v && v.trim())) return; // aún incompleto: no intentar guardar
++      try {
++        await api.put(`/procedimientos/${id}/funcionario-actuante`, datos);
++        setError(null);
++      } catch (err) {
++        setError(err instanceof ApiError ? err.message : "No fue posible guardar el funcionario.");
++        throw err;
++      }
++    },
++    [id],
++  );
++  const { estado: estadoGuardadoFuncionario } = useAutoguardado(funcionario, guardarFuncionario, {
++    activo: !cargando,
++  });
++
++  const guardarCompanero = useCallback(
++    async (datos: CompaneroPatrulla | null) => {
++      if (!datos) return;
++      const requeridos = [datos.nombreCompleto, datos.documento, datos.placa];
++      if (!requeridos.every((v) => v && v.trim())) return;
++      await api.put(`/procedimientos/${id}/companero-patrulla`, datos);
++    },
++    [id],
++  );
++  const { estado: estadoGuardadoCompanero } = useAutoguardado(companero, guardarCompanero, {
++    activo: !cargando && tieneCompanero,
++  });
++
++  async function quitarCompanero() {
++    setTieneCompanero(false);
++    setCompanero(null);
++    try {
++      await api.delete(`/procedimientos/${id}/companero-patrulla`);
++    } catch {
++      // si nunca se había guardado, el DELETE puede fallar sin problema
++    }
++  }
++
++  if (cargando) {
++    return <p className="font-sans text-sm text-institucional-700">Cargando…</p>;
++  }
++
++  return (
++    <div className="space-y-8">
++      <div>
++        <div className="flex items-center justify-between">
++          <div>
++            <h1 className="font-display text-2xl text-institucional-950">1. Funcionario que realiza el procedimiento</h1>
++            <p className="mt-1 font-sans text-sm text-institucional-700">
++              Todos los campos son obligatorios, salvo el correo electrónico.
++            </p>
++          </div>
++          <IndicadorGuardado estado={estadoGuardadoFuncionario} />
++        </div>
++
++        {error && (
++          <p role="alert" className="mt-3 font-sans text-sm text-estado-error">
++            {error}
++          </p>
++        )}
++
++        <div className="mt-6 grid grid-cols-1 gap-4 rounded-lg border border-institucional-100 bg-white p-6 shadow-sm sm:grid-cols-2">
++          <Campo etiqueta="Nombres y apellidos" requerido>
++            <input
++              className={claseInput}
++              value={funcionario.nombreCompleto}
++              onChange={(e) => setFuncionario({ ...funcionario, nombreCompleto: e.target.value })}
++            />
++          </Campo>
++          <Campo etiqueta="Número de identificación" requerido>
++            <input
++              className={claseInput}
++              value={funcionario.documento}
++              onChange={(e) => setFuncionario({ ...funcionario, documento: e.target.value })}
++            />
++          </Campo>
++          <Campo etiqueta="Entidad" requerido>
++            <select
++              className={claseInput}
++              value={funcionario.entidad}
++              onChange={(e) => setFuncionario({ ...funcionario, entidad: e.target.value })}
++            >
++              {ENTIDADES.map((op) => (
++                <option key={op}>{op}</option>
++              ))}
++            </select>
++          </Campo>
++          <Campo etiqueta="Cargo" requerido>
++            <input
++              className={claseInput}
++              value={funcionario.cargo}
++              onChange={(e) => setFuncionario({ ...funcionario, cargo: e.target.value })}
++            />
++          </Campo>
++          <Campo etiqueta="Placa policial" requerido>
++            <input
++              className={claseInput}
++              value={funcionario.placa}
++              onChange={(e) => setFuncionario({ ...funcionario, placa: e.target.value })}
++            />
++          </Campo>
++          <Campo etiqueta="Zona de atención" requerido>
++            <input
++              className={claseInput}
++              value={funcionario.zonaAtencion}
++              onChange={(e) => setFuncionario({ ...funcionario, zonaAtencion: e.target.value })}
++            />
++          </Campo>
++          <Campo etiqueta="Estación de policía" requerido>
++            <input
++              className={claseInput}
++              value={funcionario.estacion}
++              onChange={(e) => setFuncionario({ ...funcionario, estacion: e.target.value })}
++            />
++          </Campo>
++          <Campo etiqueta="CAI">
++            <input
++              className={claseInput}
++              value={funcionario.cai ?? ""}
++              onChange={(e) => setFuncionario({ ...funcionario, cai: e.target.value })}
++            />
++          </Campo>
++          <Campo etiqueta="Teléfono celular" requerido>
++            <input
++              className={claseInput}
++              value={funcionario.telefono}
++              onChange={(e) => setFuncionario({ ...funcionario, telefono: e.target.value })}
++            />
++          </Campo>
++          <Campo etiqueta="Correo electrónico">
++            <input
++              type="email"
++              className={claseInput}
++              value={funcionario.correo}
++              onChange={(e) => setFuncionario({ ...funcionario, correo: e.target.value })}
++            />
++          </Campo>
++
++          <div className="sm:col-span-2">
++            <Campo etiqueta="Servicio que se encontraba prestando al momento de los hechos" requerido>
++              <select
++                className={claseInput}
++                value={SERVICIOS.includes(funcionario.servicio) ? funcionario.servicio : "Otra"}
++                onChange={(e) => {
++                  const valor = e.target.value;
++                  setFuncionario({ ...funcionario, servicio: valor === "Otra" ? servicioOtro : valor });
++                }}
++              >
++                {SERVICIOS.map((op) => (
++                  <option key={op}>{op}</option>
++                ))}
++              </select>
++            </Campo>
++            {!SERVICIOS.slice(0, -1).includes(funcionario.servicio) && (
++              <div className="mt-2">
++                <Campo etiqueta="Describa el servicio" requerido>
++                  <input
++                    className={claseInput}
++                    value={servicioOtro}
++                    onChange={(e) => {
++                      setServicioOtro(e.target.value);
++                      setFuncionario({ ...funcionario, servicio: e.target.value });
++                    }}
++                  />
++                </Campo>
++              </div>
++            )}
++          </div>
++        </div>
++      </div>
++
++      <div>
++        <div className="flex items-center justify-between">
++          <div>
++            <h2 className="font-display text-xl text-institucional-950">Compañero de patrulla</h2>
++            <p className="mt-1 font-sans text-sm text-institucional-700">
++              Opcional — hay procedimientos que se adelantan sin compañero.
++            </p>
++          </div>
++          <IndicadorGuardado estado={estadoGuardadoCompanero} />
++        </div>
++
++        {!tieneCompanero ? (
++          <button
++            type="button"
++            onClick={() => {
++              setCompanero(COMPANERO_VACIO);
++              setTieneCompanero(true);
++            }}
++            className="mt-4 rounded-md border border-institucional-100 bg-white px-4 py-2.5 font-sans text-sm text-institucional-900 shadow-sm transition-colors hover:bg-institucional-50"
++          >
++            + Agregar compañero de patrulla
++          </button>
++        ) : (
++          <div className="mt-4 grid grid-cols-1 gap-4 rounded-lg border border-institucional-100 bg-white p-6 shadow-sm sm:grid-cols-2">
++            <Campo etiqueta="Nombres y apellidos" requerido>
++              <input
++                className={claseInput}
++                value={companero?.nombreCompleto ?? ""}
++                onChange={(e) => setCompanero({ ...(companero ?? COMPANERO_VACIO), nombreCompleto: e.target.value })}
++              />
++            </Campo>
++            <Campo etiqueta="Número de identificación" requerido>
++              <input
++                className={claseInput}
++                value={companero?.documento ?? ""}
++                onChange={(e) => setCompanero({ ...(companero ?? COMPANERO_VACIO), documento: e.target.value })}
++              />
++            </Campo>
++            <Campo etiqueta="Placa policial" requerido>
++              <input
++                className={claseInput}
++                value={companero?.placa ?? ""}
++                onChange={(e) => setCompanero({ ...(companero ?? COMPANERO_VACIO), placa: e.target.value })}
++              />
++            </Campo>
++            <Campo etiqueta="Grado">
++              <input
++                className={claseInput}
++                value={companero?.grado ?? ""}
++                onChange={(e) => setCompanero({ ...(companero ?? COMPANERO_VACIO), grado: e.target.value })}
++                placeholder="Ej. PT., PP., IT."
++              />
++            </Campo>
++            <div className="sm:col-span-2">
++              <button
++                type="button"
++                onClick={quitarCompanero}
++                className="font-sans text-xs text-estado-error hover:underline"
++              >
++                Quitar compañero de patrulla
++              </button>
++            </div>
++          </div>
++        )}
++      </div>
++    </div>
++  );
++}
+diff --git a/src/app/(app)/procedimientos/[id]/intervinientes/[capturadoId]/page.tsx b/src/app/(app)/procedimientos/[id]/intervinientes/[capturadoId]/page.tsx
+new file mode 100644
+index 0000000..bf39e30
+--- /dev/null
++++ b/src/app/(app)/procedimientos/[id]/intervinientes/[capturadoId]/page.tsx
+@@ -0,0 +1,497 @@
++"use client";
++
++import { useEffect, useState, useCallback } from "react";
++import Link from "next/link";
++import { useParams } from "next/navigation";
++import { api, ApiError } from "@/lib/api";
++import { useAutoguardado } from "@/lib/useAutoguardado";
++import { IndicadorGuardado } from "@/components/IndicadorGuardado";
++
++interface Capturado {
++  id: string;
++  primerNombre: string;
++  segundoNombre: string | null;
++  primerApellido: string;
++  segundoApellido: string | null;
++  tipoDocumento: string | null;
++  numeroDocumento: string | null;
++  expedicionDocumento: string | null;
++  fechaNacimiento: string;
++  lugarNacimiento: string | null;
++  edad: number;
++  genero: string;
++  tipoInterviniente: "CAPTURADO" | "APREHENDIDO";
++  estadoCivil: string | null;
++  ocupacion: string | null;
++  correo: string | null;
++  direccion: string | null;
++  telefono: string | null;
++  senalesParticulares: string | null;
++  nombrePadres: string | null;
++  telefonoPadres: string | null;
++  nombreAcudiente: string | null;
++  parentescoAcudiente: string | null;
++  telefonoAcudiente: string | null;
++  participacionHechos: string | null;
++  comportamientoAbordaje: string | null;
++  identificacionPlena: boolean;
++  formaIdentificacion: string | null;
++}
++
++interface ContactoNotificacion {
++  nombre?: string;
++  telefono?: string;
++  comunicacionExitosa: boolean;
++  horaComunicacion?: string;
++  justificacionNoComunicacion?: string;
++}
++
++const CONTACTO_VACIO: ContactoNotificacion = { comunicacionExitosa: true };
++
++function Campo({
++  etiqueta,
++  requerido,
++  children,
++}: {
++  etiqueta: string;
++  requerido?: boolean;
++  children: React.ReactNode;
++}) {
++  return (
++    <label className="block">
++      <span className="mb-1 block font-sans text-sm font-medium text-institucional-900">
++        {etiqueta}
++        {requerido && <span className="text-estado-error"> *</span>}
++      </span>
++      {children}
++    </label>
++  );
++}
++
++const claseInput =
++  "block w-full rounded-md border border-institucional-100 bg-white px-3 py-2 font-sans text-sm text-institucional-950 outline-none focus:border-acento";
++
++function Seccion({ titulo, children }: { titulo: string; children: React.ReactNode }) {
++  return (
++    <div className="rounded-lg border border-institucional-100 bg-white p-6 shadow-sm">
++      <h2 className="font-display text-lg text-institucional-950">{titulo}</h2>
++      <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">{children}</div>
++    </div>
++  );
++}
++
++export default function EditarInterviniente() {
++  const { id, capturadoId } = useParams<{ id: string; capturadoId: string }>();
++  const [cargando, setCargando] = useState(true);
++  const [persona, setPersona] = useState<Capturado | null>(null);
++  const [contacto, setContacto] = useState<ContactoNotificacion>(CONTACTO_VACIO);
++  const [error, setError] = useState<string | null>(null);
++  const [eliminando, setEliminando] = useState(false);
++
++  useEffect(() => {
++    let cancelado = false;
++    Promise.all([
++      api.get<Capturado>(`/procedimientos/${id}/capturados/${capturadoId}`),
++      api
++        .get<ContactoNotificacion | null>(`/procedimientos/${id}/capturados/${capturadoId}/contacto-notificacion`)
++        .catch(() => null),
++    ])
++      .then(([p, c]) => {
++        if (cancelado) return;
++        setPersona(p);
++        if (c) setContacto(c);
++        setCargando(false);
++      })
++      .catch((err) => {
++        setError(err instanceof ApiError ? err.message : "No fue posible cargar el interviniente.");
++        setCargando(false);
++      });
++    return () => {
++      cancelado = true;
++    };
++  }, [id, capturadoId]);
++
++  const guardarPersona = useCallback(
++    async (datos: Capturado | null) => {
++      if (!datos) return;
++      const { id: _omitido, tipoInterviniente: _t, edad: _e, ...resto } = datos;
++      try {
++        await api.patch(`/procedimientos/${id}/capturados/${capturadoId}`, resto);
++        setError(null);
++      } catch (err) {
++        setError(err instanceof ApiError ? err.message : "No fue posible guardar.");
++        throw err;
++      }
++    },
++    [id, capturadoId],
++  );
++  const { estado: estadoPersona } = useAutoguardado(persona, guardarPersona, { activo: !cargando });
++
++  const guardarContacto = useCallback(
++    async (datos: ContactoNotificacion) => {
++      if (datos.comunicacionExitosa === false && !datos.justificacionNoComunicacion?.trim()) return;
++      await api.put(`/procedimientos/${id}/capturados/${capturadoId}/contacto-notificacion`, datos);
++    },
++    [id, capturadoId],
++  );
++  const { estado: estadoContacto } = useAutoguardado(contacto, guardarContacto, { activo: !cargando });
++
++  async function eliminarInterviniente() {
++    if (!confirm("¿Eliminar este interviniente? Esta acción no se puede deshacer.")) return;
++    setEliminando(true);
++    try {
++      await api.delete(`/procedimientos/${id}/capturados/${capturadoId}`);
++      window.location.href = `/procedimientos/${id}/intervinientes`;
++    } catch (err) {
++      setError(err instanceof ApiError ? err.message : "No fue posible eliminar.");
++      setEliminando(false);
++    }
++  }
++
++  if (cargando) return <p className="font-sans text-sm text-institucional-700">Cargando…</p>;
++  if (!persona) {
++    return (
++      <p role="alert" className="font-sans text-sm text-estado-error">
++        {error ?? "Interviniente no encontrado."}
++      </p>
++    );
++  }
++
++  const p = persona;
++  const set = (cambios: Partial<Capturado>) => setPersona({ ...p, ...cambios });
++
++  return (
++    <div className="space-y-6">
++      <div className="flex items-center justify-between">
++        <div>
++          <Link
++            href={`/procedimientos/${id}/intervinientes`}
++            className="font-sans text-sm text-institucional-700 hover:underline"
++          >
++            ← Intervinientes
++          </Link>
++          <h1 className="mt-1 font-display text-2xl text-institucional-950">
++            {p.primerNombre} {p.primerApellido}
++          </h1>
++          <p className="mt-1 font-sans text-sm text-institucional-700">
++            {p.tipoInterviniente === "APREHENDIDO" ? "Aprehendido" : "Capturado"} · {p.edad} años (calculado
++            automáticamente)
++          </p>
++        </div>
++        <IndicadorGuardado estado={estadoPersona} />
++      </div>
++
++      {error && (
++        <p role="alert" className="font-sans text-sm text-estado-error">
++          {error}
++        </p>
++      )}
++
++      <Seccion titulo="Identificación">
++        <Campo etiqueta="Tipo de documento">
++          <select
++            className={claseInput}
++            value={p.tipoDocumento ?? ""}
++            onChange={(e) => set({ tipoDocumento: e.target.value })}
++          >
++            <option value="">Selecciona…</option>
++            <option value="CC">Cédula de ciudadanía</option>
++            <option value="TI">Tarjeta de identidad</option>
++            <option value="CE">Cédula de extranjería</option>
++            <option value="PASAPORTE">Pasaporte</option>
++            <option value="NINGUNO">No porta documento</option>
++          </select>
++        </Campo>
++        <Campo etiqueta="Número de documento">
++          <input
++            className={claseInput}
++            value={p.numeroDocumento ?? ""}
++            onChange={(e) => set({ numeroDocumento: e.target.value })}
++          />
++        </Campo>
++        <Campo etiqueta="Lugar de expedición">
++          <input
++            className={claseInput}
++            value={p.expedicionDocumento ?? ""}
++            onChange={(e) => set({ expedicionDocumento: e.target.value })}
++          />
++        </Campo>
++      </Seccion>
++
++      <Seccion titulo="Información personal">
++        <Campo etiqueta="Primer nombre" requerido>
++          <input
++            className={claseInput}
++            value={p.primerNombre}
++            onChange={(e) => set({ primerNombre: e.target.value })}
++          />
++        </Campo>
++        <Campo etiqueta="Segundo nombre">
++          <input
++            className={claseInput}
++            value={p.segundoNombre ?? ""}
++            onChange={(e) => set({ segundoNombre: e.target.value })}
++          />
++        </Campo>
++        <Campo etiqueta="Primer apellido" requerido>
++          <input
++            className={claseInput}
++            value={p.primerApellido}
++            onChange={(e) => set({ primerApellido: e.target.value })}
++          />
++        </Campo>
++        <Campo etiqueta="Segundo apellido">
++          <input
++            className={claseInput}
++            value={p.segundoApellido ?? ""}
++            onChange={(e) => set({ segundoApellido: e.target.value })}
++          />
++        </Campo>
++        <Campo etiqueta="Fecha de nacimiento" requerido>
++          <input
++            type="date"
++            className={claseInput}
++            value={p.fechaNacimiento.slice(0, 10)}
++            onChange={(e) => set({ fechaNacimiento: `${e.target.value}T00:00:00.000Z` })}
++          />
++        </Campo>
++        <Campo etiqueta="Lugar de nacimiento">
++          <input
++            className={claseInput}
++            value={p.lugarNacimiento ?? ""}
++            onChange={(e) => set({ lugarNacimiento: e.target.value })}
++          />
++        </Campo>
++        <Campo etiqueta="Género" requerido>
++          <select className={claseInput} value={p.genero} onChange={(e) => set({ genero: e.target.value })}>
++            <option>Masculino</option>
++            <option>Femenino</option>
++          </select>
++        </Campo>
++        <Campo etiqueta="Estado civil">
++          <input
++            className={claseInput}
++            value={p.estadoCivil ?? ""}
++            onChange={(e) => set({ estadoCivil: e.target.value })}
++          />
++        </Campo>
++        <Campo etiqueta="Ocupación u oficio">
++          <input
++            className={claseInput}
++            value={p.ocupacion ?? ""}
++            onChange={(e) => set({ ocupacion: e.target.value })}
++          />
++        </Campo>
++      </Seccion>
++
++      <Seccion titulo="Información de contacto">
++        <Campo etiqueta="Dirección">
++          <input
++            className={claseInput}
++            value={p.direccion ?? ""}
++            onChange={(e) => set({ direccion: e.target.value })}
++          />
++        </Campo>
++        <Campo etiqueta="Teléfono">
++          <input
++            className={claseInput}
++            value={p.telefono ?? ""}
++            onChange={(e) => set({ telefono: e.target.value })}
++          />
++        </Campo>
++        <Campo etiqueta="Correo electrónico">
++          <input
++            type="email"
++            className={claseInput}
++            value={p.correo ?? ""}
++            onChange={(e) => set({ correo: e.target.value })}
++          />
++        </Campo>
++      </Seccion>
++
++      <Seccion titulo="Señales particulares">
++        <div className="sm:col-span-2">
++          <Campo etiqueta="Señales particulares visibles">
++            <textarea
++              rows={2}
++              className={claseInput}
++              value={p.senalesParticulares ?? ""}
++              onChange={(e) => set({ senalesParticulares: e.target.value })}
++            />
++          </Campo>
++        </div>
++      </Seccion>
++
++      <Seccion titulo="Información familiar">
++        <Campo etiqueta="Nombre de los padres">
++          <input
++            className={claseInput}
++            value={p.nombrePadres ?? ""}
++            onChange={(e) => set({ nombrePadres: e.target.value })}
++          />
++        </Campo>
++        <Campo etiqueta="Teléfono de los padres">
++          <input
++            className={claseInput}
++            value={p.telefonoPadres ?? ""}
++            onChange={(e) => set({ telefonoPadres: e.target.value })}
++          />
++        </Campo>
++      </Seccion>
++
++      <Seccion titulo="Participación en los hechos (Bloque 5/6)">
++        <div className="sm:col-span-2">
++          <Campo etiqueta="¿Qué hizo esta persona específicamente? (portaba, consumía, comercializaba, ocultaba...)">
++            <textarea
++              rows={2}
++              className={claseInput}
++              value={p.participacionHechos ?? ""}
++              onChange={(e) => set({ participacionHechos: e.target.value })}
++            />
++          </Campo>
++        </div>
++        <div className="sm:col-span-2">
++          <Campo etiqueta="Comportamiento durante el abordaje (colaboración, resistencia, intento de fuga...)">
++            <textarea
++              rows={2}
++              className={claseInput}
++              value={p.comportamientoAbordaje ?? ""}
++              onChange={(e) => set({ comportamientoAbordaje: e.target.value })}
++            />
++          </Campo>
++        </div>
++        <div className="sm:col-span-2">
++          <Campo etiqueta="¿Se identificó plenamente?">
++            <div className="mt-1 flex gap-3">
++              {[true, false].map((valor) => (
++                <button
++                  type="button"
++                  key={String(valor)}
++                  onClick={() => set({ identificacionPlena: valor })}
++                  className={`rounded-md border px-3 py-2 font-sans text-sm transition-colors ${
++                    p.identificacionPlena === valor
++                      ? "border-acento bg-acento-light text-acento-hover"
++                      : "border-institucional-100 text-institucional-700 hover:bg-institucional-50"
++                  }`}
++                >
++                  {valor ? "Sí" : "No"}
++                </button>
++              ))}
++            </div>
++          </Campo>
++        </div>
++        {p.identificacionPlena === false && (
++          <div className="sm:col-span-2">
++            <Campo etiqueta="¿Cómo se logró establecer la identidad?">
++              <textarea
++                rows={2}
++                className={claseInput}
++                value={p.formaIdentificacion ?? ""}
++                onChange={(e) => set({ formaIdentificacion: e.target.value })}
++              />
++            </Campo>
++          </div>
++        )}
++      </Seccion>
++
++      {p.tipoInterviniente === "APREHENDIDO" && (
++        <Seccion titulo="Acudiente (exclusivo para adolescentes)">
++          <Campo etiqueta="Nombre del acudiente">
++            <input
++              className={claseInput}
++              value={p.nombreAcudiente ?? ""}
++              onChange={(e) => set({ nombreAcudiente: e.target.value })}
++            />
++          </Campo>
++          <Campo etiqueta="Parentesco">
++            <input
++              className={claseInput}
++              value={p.parentescoAcudiente ?? ""}
++              onChange={(e) => set({ parentescoAcudiente: e.target.value })}
++            />
++          </Campo>
++          <Campo etiqueta="Teléfono del acudiente">
++            <input
++              className={claseInput}
++              value={p.telefonoAcudiente ?? ""}
++              onChange={(e) => set({ telefonoAcudiente: e.target.value })}
++            />
++          </Campo>
++        </Seccion>
++      )}
++
++      <div>
++        <div className="flex items-center justify-between">
++          <h2 className="font-display text-lg text-institucional-950">Persona a informar la captura/aprehensión</h2>
++          <IndicadorGuardado estado={estadoContacto} />
++        </div>
++        <div className="mt-4 grid grid-cols-1 gap-4 rounded-lg border border-institucional-100 bg-white p-6 shadow-sm sm:grid-cols-2">
++          <Campo etiqueta="Nombre">
++            <input
++              className={claseInput}
++              value={contacto.nombre ?? ""}
++              onChange={(e) => setContacto({ ...contacto, nombre: e.target.value })}
++            />
++          </Campo>
++          <Campo etiqueta="Teléfono">
++            <input
++              className={claseInput}
++              value={contacto.telefono ?? ""}
++              onChange={(e) => setContacto({ ...contacto, telefono: e.target.value })}
++            />
++          </Campo>
++          <div className="sm:col-span-2">
++            <Campo etiqueta="¿Fue posible realizar la comunicación?" requerido>
++              <div className="mt-1 flex gap-3">
++                {[true, false].map((valor) => (
++                  <button
++                    type="button"
++                    key={String(valor)}
++                    onClick={() => setContacto({ ...contacto, comunicacionExitosa: valor })}
++                    className={`rounded-md border px-3 py-2 font-sans text-sm transition-colors ${
++                      contacto.comunicacionExitosa === valor
++                        ? "border-acento bg-acento-light text-acento-hover"
++                        : "border-institucional-100 text-institucional-700 hover:bg-institucional-50"
++                    }`}
++                  >
++                    {valor ? "Sí" : "No"}
++                  </button>
++                ))}
++              </div>
++            </Campo>
++          </div>
++          {contacto.comunicacionExitosa ? (
++            <Campo etiqueta="Hora de la comunicación">
++              <input
++                type="time"
++                className={claseInput}
++                value={contacto.horaComunicacion ?? ""}
++                onChange={(e) => setContacto({ ...contacto, horaComunicacion: e.target.value })}
++              />
++            </Campo>
++          ) : (
++            <div className="sm:col-span-2">
++              <Campo etiqueta="Justificación" requerido>
++                <textarea
++                  rows={2}
++                  className={claseInput}
++                  value={contacto.justificacionNoComunicacion ?? ""}
++                  onChange={(e) => setContacto({ ...contacto, justificacionNoComunicacion: e.target.value })}
++                />
++              </Campo>
++            </div>
++          )}
++        </div>
++      </div>
++
++      <button
++        type="button"
++        onClick={eliminarInterviniente}
++        disabled={eliminando}
++        className="font-sans text-xs text-estado-error hover:underline disabled:opacity-60"
++      >
++        {eliminando ? "Eliminando…" : "Eliminar este interviniente"}
++      </button>
++    </div>
++  );
++}
+diff --git a/src/app/(app)/procedimientos/[id]/intervinientes/nuevo/page.tsx b/src/app/(app)/procedimientos/[id]/intervinientes/nuevo/page.tsx
+new file mode 100644
+index 0000000..45c8967
+--- /dev/null
++++ b/src/app/(app)/procedimientos/[id]/intervinientes/nuevo/page.tsx
+@@ -0,0 +1,115 @@
++"use client";
++
++import { useState, FormEvent } from "react";
++import { useParams, useRouter } from "next/navigation";
++import Link from "next/link";
++import { api, ApiError } from "@/lib/api";
++
++export default function NuevoInterviniente() {
++  const { id } = useParams<{ id: string }>();
++  const router = useRouter();
++  const [primerNombre, setPrimerNombre] = useState("");
++  const [primerApellido, setPrimerApellido] = useState("");
++  const [fechaNacimiento, setFechaNacimiento] = useState("");
++  const [genero, setGenero] = useState("Masculino");
++  const [cargando, setCargando] = useState(false);
++  const [error, setError] = useState<string | null>(null);
++
++  async function manejarEnvio(evento: FormEvent) {
++    evento.preventDefault();
++    setError(null);
++    setCargando(true);
++    try {
++      const nuevo = await api.post<{ id: string }>(`/procedimientos/${id}/capturados`, {
++        primerNombre,
++        primerApellido,
++        fechaNacimiento: `${fechaNacimiento}T00:00:00.000Z`,
++        genero,
++      });
++      router.push(`/procedimientos/${id}/intervinientes/${nuevo.id}`);
++    } catch (err) {
++      setError(err instanceof ApiError ? err.message : "No fue posible crear el interviniente.");
++    } finally {
++      setCargando(false);
++    }
++  }
++
++  const claseInput =
++    "block w-full rounded-md border border-institucional-100 bg-white px-3 py-2 font-sans text-sm text-institucional-950 outline-none focus:border-acento";
++
++  return (
++    <div className="mx-auto max-w-lg">
++      <Link
++        href={`/procedimientos/${id}/intervinientes`}
++        className="font-sans text-sm text-institucional-700 hover:underline"
++      >
++        ← Intervinientes
++      </Link>
++      <h1 className="mt-3 font-display text-2xl text-institucional-950">Nuevo interviniente</h1>
++      <p className="mt-1 font-sans text-sm text-institucional-700">
++        El sistema determinará automáticamente si es Capturado o Aprehendido según la fecha de
++        nacimiento. Podrás completar el resto de la información en la siguiente pantalla.
++      </p>
++
++      <form onSubmit={manejarEnvio} className="mt-6 space-y-4 rounded-lg border border-institucional-100 bg-white p-6 shadow-sm">
++        <label className="block">
++          <span className="mb-1 block font-sans text-sm font-medium text-institucional-900">
++            Primer nombre <span className="text-estado-error">*</span>
++          </span>
++          <input
++            required
++            className={claseInput}
++            value={primerNombre}
++            onChange={(e) => setPrimerNombre(e.target.value)}
++          />
++        </label>
++        <label className="block">
++          <span className="mb-1 block font-sans text-sm font-medium text-institucional-900">
++            Primer apellido <span className="text-estado-error">*</span>
++          </span>
++          <input
++            required
++            className={claseInput}
++            value={primerApellido}
++            onChange={(e) => setPrimerApellido(e.target.value)}
++          />
++        </label>
++        <label className="block">
++          <span className="mb-1 block font-sans text-sm font-medium text-institucional-900">
++            Fecha de nacimiento <span className="text-estado-error">*</span>
++          </span>
++          <input
++            required
++            type="date"
++            className={claseInput}
++            value={fechaNacimiento}
++            onChange={(e) => setFechaNacimiento(e.target.value)}
++          />
++        </label>
++        <label className="block">
++          <span className="mb-1 block font-sans text-sm font-medium text-institucional-900">
++            Género <span className="text-estado-error">*</span>
++          </span>
++          <select className={claseInput} value={genero} onChange={(e) => setGenero(e.target.value)}>
++            <option>Masculino</option>
++            <option>Femenino</option>
++          </select>
++        </label>
++
++        {error && (
++          <p role="alert" className="font-sans text-sm text-estado-error">
++            {error}
++          </p>
++        )}
++
++        <button
++          type="submit"
++          disabled={cargando}
++          className="w-full rounded-md bg-acento px-4 py-2.5 font-sans text-sm font-semibold text-white shadow-sm transition-colors hover:bg-acento-hover disabled:cursor-not-allowed disabled:opacity-60"
++        >
++          {cargando ? "Creando…" : "Crear y continuar"}
++        </button>
++      </form>
++    </div>
++  );
++}
+diff --git a/src/app/(app)/procedimientos/[id]/intervinientes/page.tsx b/src/app/(app)/procedimientos/[id]/intervinientes/page.tsx
+new file mode 100644
+index 0000000..1f23497
+--- /dev/null
++++ b/src/app/(app)/procedimientos/[id]/intervinientes/page.tsx
+@@ -0,0 +1,102 @@
++"use client";
++
++import { useEffect, useState } from "react";
++import Link from "next/link";
++import { useParams } from "next/navigation";
++import { api, ApiError } from "@/lib/api";
++
++interface CapturadoResumen {
++  id: string;
++  primerNombre: string;
++  primerApellido: string;
++  tipoInterviniente: "CAPTURADO" | "APREHENDIDO";
++  edad: number;
++  numeroDocumento: string | null;
++  contactoNotificacion: unknown | null;
++}
++
++export default function BloqueIntervinientes() {
++  const { id } = useParams<{ id: string }>();
++  const [intervinientes, setIntervinientes] = useState<CapturadoResumen[] | null>(null);
++  const [error, setError] = useState<string | null>(null);
++
++  useEffect(() => {
++    api
++      .get<CapturadoResumen[]>(`/procedimientos/${id}/capturados`)
++      .then(setIntervinientes)
++      .catch((err) => setError(err instanceof ApiError ? err.message : "No fue posible cargar los intervinientes."));
++  }, [id]);
++
++  return (
++    <div>
++      <div className="flex items-center justify-between">
++        <div>
++          <h1 className="font-display text-2xl text-institucional-950">2. Intervinientes</h1>
++          <p className="mt-1 font-sans text-sm text-institucional-700">
++            Uno o varios capturados/aprehendidos asociados a este procedimiento.
++          </p>
++        </div>
++        <Link
++          href={`/procedimientos/${id}/intervinientes/nuevo`}
++          className="rounded-md bg-acento px-4 py-2.5 font-sans text-sm font-semibold text-white shadow-sm transition-colors hover:bg-acento-hover"
++        >
++          + Agregar interviniente
++        </Link>
++      </div>
++
++      {error && (
++        <p role="alert" className="mt-4 font-sans text-sm text-estado-error">
++          {error}
++        </p>
++      )}
++
++      <div className="mt-6">
++        {intervinientes === null && !error && (
++          <p className="font-sans text-sm text-institucional-700">Cargando…</p>
++        )}
++
++        {intervinientes?.length === 0 && (
++          <div className="rounded-lg border border-dashed border-institucional-100 bg-white px-6 py-14 text-center">
++            <p className="font-display text-lg text-institucional-950">Aún no hay intervinientes</p>
++            <p className="mt-1 font-sans text-sm text-institucional-700">
++              Agrega al menos uno para poder continuar con el procedimiento.
++            </p>
++          </div>
++        )}
++
++        {intervinientes && intervinientes.length > 0 && (
++          <ul className="divide-y divide-institucional-100 rounded-lg border border-institucional-100 bg-white shadow-sm">
++            {intervinientes.map((persona) => (
++              <li key={persona.id}>
++                <Link
++                  href={`/procedimientos/${id}/intervinientes/${persona.id}`}
++                  className="flex items-center justify-between gap-4 px-5 py-4 transition-colors hover:bg-institucional-50"
++                >
++                  <div>
++                    <p className="font-sans text-sm font-semibold text-institucional-950">
++                      {persona.primerNombre} {persona.primerApellido}
++                    </p>
++                    <p className="mt-0.5 font-sans text-xs text-institucional-700">
++                      {persona.tipoInterviniente === "APREHENDIDO" ? "Aprehendido" : "Capturado"} · {persona.edad}{" "}
++                      años {persona.numeroDocumento ? `· ${persona.numeroDocumento}` : ""}
++                    </p>
++                  </div>
++                  <div className="flex items-center gap-2">
++                    {!persona.contactoNotificacion && (
++                      <span className="rounded-full bg-estado-pendiente/10 px-2.5 py-1 font-sans text-xs font-medium text-estado-pendiente">
++                        Falta persona a informar
++                      </span>
++                    )}
++                    <span aria-hidden className="text-institucional-700">
++                      →
++                    </span>
++                  </div>
++                </Link>
++              </li>
++            ))}
++          </ul>
++        )}
++      </div>
++    </div>
++  );
++}
+diff --git a/src/app/(app)/procedimientos/[id]/layout.tsx b/src/app/(app)/procedimientos/[id]/layout.tsx
+new file mode 100644
+index 0000000..ea4fb78
+--- /dev/null
++++ b/src/app/(app)/procedimientos/[id]/layout.tsx
+@@ -0,0 +1,94 @@
++"use client";
++
++import Link from "next/link";
++import { usePathname, useParams } from "next/navigation";
++import { useEffect, useState } from "react";
++import { api } from "@/lib/api";
++import type { FuncionarioActuante, LugarProcedimiento, EstadoBloque } from "@/lib/tipos";
++import { estadoFuncionario, estadoLugar, estadoIntervinientes, PUNTO_ESTADO } from "@/lib/estados";
++
++interface ItemBloque {
++  slug: string;
++  numero: number;
++  titulo: string;
++  estado: EstadoBloque;
++}
++
++export default function LayoutProcedimiento({ children }: { children: React.ReactNode }) {
++  const pathname = usePathname();
++  const { id } = useParams<{ id: string }>();
++  const [bloques, setBloques] = useState<ItemBloque[] | null>(null);
++
++  useEffect(() => {
++    let cancelado = false;
++
++    async function cargarEstados() {
++      // Cada bloque se consulta de forma independiente y tolerante a
++      // fallos: si un módulo todavía no tiene datos (o su endpoint aún
++      // está en construcción), no debe romper la navegación de los demás.
++      const [funcionario, lugar, intervinientes] = await Promise.all([
++        api.get<FuncionarioActuante | null>(`/procedimientos/${id}/funcionario-actuante`).catch(() => null),
++        api.get<LugarProcedimiento | null>(`/procedimientos/${id}/lugar-procedimiento`).catch(() => null),
++        api.get<unknown[]>(`/procedimientos/${id}/capturados`).catch(() => null),
++      ]);
++
++      if (cancelado) return;
++
++      setBloques([
++        { slug: "funcionario", numero: 1, titulo: "Funcionario y compañero", estado: estadoFuncionario(funcionario) },
++        {
++          slug: "intervinientes",
++          numero: 2,
++          titulo: "Intervinientes",
++          estado: estadoIntervinientes(intervinientes?.length ?? null),
++        },
++        { slug: "lugar", numero: 3, titulo: "Lugar del procedimiento", estado: estadoLugar(lugar) },
++        { slug: "elementos", numero: 4, titulo: "Elementos incautados", estado: "vacio" },
++        { slug: "actuaciones", numero: 5, titulo: "Actuaciones procedimentales", estado: "vacio" },
++        { slug: "relato", numero: 6, titulo: "Relato de los hechos", estado: "vacio" },
++      ]);
++    }
++
++    void cargarEstados();
++    return () => {
++      cancelado = true;
++    };
++    // Recalcula cada vez que cambia de bloque, para reflejar guardados recientes.
++  }, [id, pathname]);
++
++  return (
++    <div className="grid grid-cols-1 gap-6 lg:grid-cols-[240px_minmax(0,1fr)]">
++      <aside className="lg:sticky lg:top-6 lg:self-start">
++        <Link href="/procedimientos" className="font-sans text-sm text-institucional-700 hover:underline">
++          ← Mis procedimientos
++        </Link>
++        <nav className="mt-4 space-y-1 rounded-lg border border-institucional-100 bg-white p-2 shadow-sm">
++          {(bloques ?? []).map((bloque) => {
++            const activo = pathname.endsWith(`/${bloque.slug}`);
++            const punto = PUNTO_ESTADO[bloque.estado];
++            return (
++              <Link
++                key={bloque.slug}
++                href={`/procedimientos/${id}/${bloque.slug}`}
++                className={`flex items-center gap-2.5 rounded-md px-3 py-2.5 font-sans text-sm transition-colors ${
++                  activo
++                    ? "bg-institucional-950 text-institucional-50"
++                    : "text-institucional-900 hover:bg-institucional-50"
++                }`}
++              >
++                <span aria-hidden>{punto.emoji}</span>
++                <span className="flex-1">
++                  <span className={activo ? "text-institucional-100/60" : "text-institucional-700"}>
++                    {bloque.numero}.{" "}
++                  </span>
++                  {bloque.titulo}
++                </span>
++              </Link>
++            );
++          })}
++        </nav>
++      </aside>
++      <section>{children}</section>
++    </div>
++  );
++}
+diff --git a/src/app/(app)/procedimientos/[id]/lugar/page.tsx b/src/app/(app)/procedimientos/[id]/lugar/page.tsx
+new file mode 100644
+index 0000000..551eb1d
+--- /dev/null
++++ b/src/app/(app)/procedimientos/[id]/lugar/page.tsx
+@@ -0,0 +1,158 @@
++"use client";
++
++import { useEffect, useState, useCallback } from "react";
++import { useParams } from "next/navigation";
++import { api, ApiError } from "@/lib/api";
++import { useAutoguardado } from "@/lib/useAutoguardado";
++import { IndicadorGuardado } from "@/components/IndicadorGuardado";
++import type { LugarProcedimiento } from "@/lib/tipos";
++
++const LUGAR_VACIO: LugarProcedimiento = {
++  departamento: "",
++  municipio: "",
++  localidad: "",
++  barrio: "",
++  direccion: "",
++  caracteristicas: "",
++};
++
++function Campo({
++  etiqueta,
++  requerido,
++  children,
++}: {
++  etiqueta: string;
++  requerido?: boolean;
++  children: React.ReactNode;
++}) {
++  return (
++    <label className="block">
++      <span className="mb-1 block font-sans text-sm font-medium text-institucional-900">
++        {etiqueta}
++        {requerido && <span className="text-estado-error"> *</span>}
++      </span>
++      {children}
++    </label>
++  );
++}
++
++const claseInput =
++  "block w-full rounded-md border border-institucional-100 bg-white px-3 py-2 font-sans text-sm text-institucional-950 outline-none focus:border-acento";
++
++export default function BloqueLugar() {
++  const { id } = useParams<{ id: string }>();
++  const [cargando, setCargando] = useState(true);
++  const [lugar, setLugar] = useState<LugarProcedimiento>(LUGAR_VACIO);
++  const [error, setError] = useState<string | null>(null);
++
++  useEffect(() => {
++    let cancelado = false;
++    api
++      .get<LugarProcedimiento | null>(`/procedimientos/${id}/lugar-procedimiento`)
++      .then((l) => {
++        if (cancelado) return;
++        if (l) setLugar({ ...LUGAR_VACIO, ...l });
++        setCargando(false);
++      })
++      .catch(() => setCargando(false));
++    return () => {
++      cancelado = true;
++    };
++  }, [id]);
++
++  const guardar = useCallback(
++    async (datos: LugarProcedimiento) => {
++      const requeridos = [datos.departamento, datos.municipio, datos.barrio, datos.direccion];
++      if (!requeridos.every((v) => v && v.trim())) return;
++      try {
++        await api.put(`/procedimientos/${id}/lugar-procedimiento`, datos);
++        setError(null);
++      } catch (err) {
++        setError(err instanceof ApiError ? err.message : "No fue posible guardar el lugar.");
++        throw err;
++      }
++    },
++    [id],
++  );
++  const { estado: estadoGuardado } = useAutoguardado(lugar, guardar, { activo: !cargando });
++
++  if (cargando) {
++    return <p className="font-sans text-sm text-institucional-700">Cargando…</p>;
++  }
++
++  return (
++    <div>
++      <div className="flex items-center justify-between">
++        <div>
++          <h1 className="font-display text-2xl text-institucional-950">3. Lugar del procedimiento</h1>
++          <p className="mt-1 font-sans text-sm text-institucional-700">
++            La ubicación oficial donde ocurrieron los hechos. Alimenta automáticamente el FPJ-5, el
++            Acta de Incautación, el FPJ-7 y el FPJ-8.
++          </p>
++        </div>
++        <IndicadorGuardado estado={estadoGuardado} />
++      </div>
++
++      {error && (
++        <p role="alert" className="mt-3 font-sans text-sm text-estado-error">
++          {error}
++        </p>
++      )}
++
++      <div className="mt-6 grid grid-cols-1 gap-4 rounded-lg border border-institucional-100 bg-white p-6 shadow-sm sm:grid-cols-2">
++        <Campo etiqueta="Departamento" requerido>
++          <input
++            className={claseInput}
++            value={lugar.departamento}
++            onChange={(e) => setLugar({ ...lugar, departamento: e.target.value })}
++          />
++        </Campo>
++        <Campo etiqueta="Municipio" requerido>
++          <input
++            className={claseInput}
++            value={lugar.municipio}
++            onChange={(e) => setLugar({ ...lugar, municipio: e.target.value })}
++          />
++        </Campo>
++        <Campo etiqueta="Localidad / Comuna">
++          <input
++            className={claseInput}
++            value={lugar.localidad ?? ""}
++            onChange={(e) => setLugar({ ...lugar, localidad: e.target.value })}
++          />
++        </Campo>
++        <Campo etiqueta="Barrio" requerido>
++          <input
++            className={claseInput}
++            value={lugar.barrio}
++            onChange={(e) => setLugar({ ...lugar, barrio: e.target.value })}
++          />
++        </Campo>
++        <div className="sm:col-span-2">
++          <Campo etiqueta="Dirección" requerido>
++            <input
++              className={claseInput}
++              value={lugar.direccion}
++              onChange={(e) => setLugar({ ...lugar, direccion: e.target.value })}
++            />
++          </Campo>
++        </div>
++        <div className="sm:col-span-2">
++          <Campo etiqueta="Características del lugar">
++            <textarea
++              rows={3}
++              className={claseInput}
++              value={lugar.caracteristicas ?? ""}
++              onChange={(e) => setLugar({ ...lugar, caracteristicas: e.target.value })}
++              placeholder="Ej. Zona comercial, alta afluencia de personas"
++            />
++          </Campo>
++        </div>
++      </div>
++
++      <p className="mt-3 font-sans text-xs text-institucional-700">
++        La zona se registrará automáticamente como <strong>URBANA</strong> en el FPJ-5.
++      </p>
++    </div>
++  );
++}
+diff --git a/src/app/(app)/procedimientos/[id]/page.tsx b/src/app/(app)/procedimientos/[id]/page.tsx
+index 867989d..db3234e 100644
+--- a/src/app/(app)/procedimientos/[id]/page.tsx
++++ b/src/app/(app)/procedimientos/[id]/page.tsx
+@@ -1,52 +1,6 @@
+-"use client";
++import { redirect } from "next/navigation";
+ 
+-import { useEffect, useState } from "react";
+-import Link from "next/link";
+-import { useParams } from "next/navigation";
+-import { api, ApiError } from "@/lib/api";
+-import type { Procedimiento } from "@/lib/tipos";
+-
+-export default function PaginaDetalleProcedimiento() {
+-  const { id } = useParams<{ id: string }>();
+-  const [procedimiento, setProcedimiento] = useState<Procedimiento | null>(null);
+-  const [error, setError] = useState<string | null>(null);
+-
+-  useEffect(() => {
+-    api
+-      .get<Procedimiento>(`/procedimientos/${id}`)
+-      .then(setProcedimiento)
+-      .catch((err) => setError(err instanceof ApiError ? err.message : "No fue posible cargar el procedimiento."));
+-  }, [id]);
+-
+-  return (
+-    <div>
+-      <Link href="/procedimientos" className="font-sans text-sm text-institucional-700 hover:underline">
+-        ← Mis procedimientos
+-      </Link>
+-
+-      {error && (
+-        <p role="alert" className="mt-4 font-sans text-sm text-estado-error">
+-          {error}
+-        </p>
+-      )}
+-
+-      {procedimiento && (
+-        <div className="mt-4">
+-          <h1 className="font-display text-2xl text-institucional-950">{procedimiento.numeroInterno}</h1>
+-          <p className="mt-1 font-sans text-sm text-institucional-700">{procedimiento.delito}</p>
+-
+-          <div className="mt-8 rounded-lg border border-dashed border-institucional-100 bg-white px-6 py-10 text-center">
+-            <p className="font-display text-lg text-institucional-950">
+-              Formulario del procedimiento — próximamente
+-            </p>
+-            <p className="mx-auto mt-1 max-w-md font-sans text-sm text-institucional-700">
+-              Aquí vivirán los Bloques 1 a 6 (funcionarios, lugar, intervinientes, elementos y
+-              actuaciones), con navegación libre entre ellos y autoguardado — se construye en la
+-              siguiente ronda de esta misma fase.
+-            </p>
+-          </div>
+-        </div>
+-      )}
+-    </div>
+-  );
++export default async function PaginaProcedimiento({ params }: { params: Promise<{ id: string }> }) {
++  const { id } = await params;
++  redirect(`/procedimientos/${id}/funcionario`);
+ }
+diff --git a/src/app/(app)/procedimientos/[id]/relato/page.tsx b/src/app/(app)/procedimientos/[id]/relato/page.tsx
+new file mode 100644
+index 0000000..20e2e09
+--- /dev/null
++++ b/src/app/(app)/procedimientos/[id]/relato/page.tsx
+@@ -0,0 +1,192 @@
++"use client";
++
++import { useEffect, useState, useCallback } from "react";
++import { useParams } from "next/navigation";
++import { api, ApiError } from "@/lib/api";
++import { useAutoguardado } from "@/lib/useAutoguardado";
++import { IndicadorGuardado } from "@/components/IndicadorGuardado";
++import type { ActuacionesProcedimiento } from "@/lib/tipos";
++import { ACTUACIONES_VACIAS } from "@/lib/tipos";
++
++const claseInput =
++  "block w-full rounded-md border border-institucional-100 bg-white px-3 py-2 font-sans text-sm text-institucional-950 outline-none focus:border-acento";
++
++function Campo({ etiqueta, requerido, children }: { etiqueta: string; requerido?: boolean; children: React.ReactNode }) {
++  return (
++    <label className="block">
++      <span className="mb-1 block font-sans text-sm font-medium text-institucional-900">
++        {etiqueta}
++        {requerido && <span className="text-estado-error"> *</span>}
++      </span>
++      {children}
++    </label>
++  );
++}
++
++function SiNo({ valor, onChange }: { valor: boolean; onChange: (v: boolean) => void }) {
++  return (
++    <div className="flex gap-3">
++      {[true, false].map((v) => (
++        <button
++          type="button"
++          key={String(v)}
++          onClick={() => onChange(v)}
++          className={`rounded-md border px-4 py-2 font-sans text-sm transition-colors ${
++            valor === v
++              ? "border-acento bg-acento-light text-acento-hover"
++              : "border-institucional-100 text-institucional-700 hover:bg-institucional-50"
++          }`}
++        >
++          {v ? "Sí" : "No"}
++        </button>
++      ))}
++    </div>
++  );
++}
++
++export default function BloqueRelato() {
++  const { id } = useParams<{ id: string }>();
++  const [cargando, setCargando] = useState(true);
++  const [datos, setDatos] = useState<ActuacionesProcedimiento>(ACTUACIONES_VACIAS);
++  const [faltaBloque5, setFaltaBloque5] = useState(false);
++  const [error, setError] = useState<string | null>(null);
++
++  useEffect(() => {
++    let cancelado = false;
++    api
++      .get<ActuacionesProcedimiento | null>(`/procedimientos/${id}/actuaciones-procedimiento`)
++      .then((a) => {
++        if (cancelado) return;
++        if (a) {
++          setDatos({ ...ACTUACIONES_VACIAS, ...a });
++        } else {
++          setFaltaBloque5(true);
++        }
++        setCargando(false);
++      })
++      .catch(() => setCargando(false));
++    return () => {
++      cancelado = true;
++    };
++  }, [id]);
++
++  const guardar = useCallback(
++    async (valor: ActuacionesProcedimiento) => {
++      // El relato comparte el registro con las Actuaciones (Bloque 5). Si
++      // ese bloque aún no tiene sus campos obligatorios, no se puede
++      // guardar todavía — se le pide al usuario completarlo primero.
++      if (!valor.fechaDerechos || !valor.horaDerechos || !valor.autoridadReceptora?.trim()) {
++        setFaltaBloque5(true);
++        return;
++      }
++      setFaltaBloque5(false);
++      try {
++        await api.put(`/procedimientos/${id}/actuaciones-procedimiento`, valor);
++        setError(null);
++      } catch (err) {
++        setError(err instanceof ApiError ? err.message : "No fue posible guardar el relato.");
++        throw err;
++      }
++    },
++    [id],
++  );
++  const { estado: estadoGuardado } = useAutoguardado(datos, guardar, { activo: !cargando });
++
++  const set = (cambios: Partial<ActuacionesProcedimiento>) => setDatos({ ...datos, ...cambios });
++
++  if (cargando) return <p className="font-sans text-sm text-institucional-700">Cargando…</p>;
++
++  return (
++    <div className="space-y-6">
++      <div className="flex items-center justify-between">
++        <div>
++          <h1 className="font-display text-2xl text-institucional-950">6. Relato de los hechos</h1>
++          <p className="mt-1 font-sans text-sm text-institucional-700">
++            Esta información alimenta directamente la narración automática del FPJ-5.
++          </p>
++        </div>
++        <IndicadorGuardado estado={estadoGuardado} />
++      </div>
++
++      {faltaBloque5 && (
++        <p className="rounded-md bg-institucional-100 px-3 py-2.5 font-sans text-xs text-institucional-800">
++          Completa primero el Bloque 5 (Actuaciones Procedimentales) — este relato se guarda junto con
++          esa información.
++        </p>
++      )}
++
++      {error && (
++        <p role="alert" className="font-sans text-sm text-estado-error">
++          {error}
++        </p>
++      )}
++
++      <div className="space-y-4 rounded-lg border border-institucional-100 bg-white p-6 shadow-sm">
++        <Campo etiqueta="¿Qué observó el personal policial que motivó la intervención?">
++          <textarea
++            rows={3}
++            className={claseInput}
++            value={datos.observacionInicial ?? ""}
++            onChange={(e) => set({ observacionInicial: e.target.value })}
++          />
++        </Campo>
++
++        <Campo etiqueta="Describa brevemente cómo se desarrolló la intervención">
++          <textarea
++            rows={3}
++            className={claseInput}
++            value={datos.desarrolloIntervencion ?? ""}
++            onChange={(e) => set({ desarrolloIntervencion: e.target.value })}
++          />
++        </Campo>
++
++        <div>
++          <Campo etiqueta="¿Existió alguna circunstancia relevante durante el procedimiento?">
++            <SiNo
++              valor={Boolean(datos.tieneCircunstanciaRelevante)}
++              onChange={(v) => set({ tieneCircunstanciaRelevante: v })}
++            />
++          </Campo>
++          {datos.tieneCircunstanciaRelevante && (
++            <div className="mt-2">
++              <Campo etiqueta="Describa la circunstancia relevante" requerido>
++                <textarea
++                  rows={2}
++                  className={claseInput}
++                  value={datos.circunstanciaRelevante ?? ""}
++                  onChange={(e) => set({ circunstanciaRelevante: e.target.value })}
++                />
++              </Campo>
++            </div>
++          )}
++        </div>
++
++        <div>
++          <Campo etiqueta="¿Existe alguna observación adicional que deba quedar consignada en el informe?">
++            <SiNo
++              valor={Boolean(datos.tieneObservacionAdicional)}
++              onChange={(v) => set({ tieneObservacionAdicional: v })}
++            />
++          </Campo>
++          {datos.tieneObservacionAdicional && (
++            <div className="mt-2">
++              <Campo etiqueta="Observación adicional" requerido>
++                <textarea
++                  rows={2}
++                  className={claseInput}
++                  value={datos.observacionAdicional ?? ""}
++                  onChange={(e) => set({ observacionAdicional: e.target.value })}
++                />
++              </Campo>
++            </div>
++          )}
++        </div>
++      </div>
++
++      <p className="font-sans text-xs text-institucional-700">
++        La participación y el comportamiento de cada interviniente durante el abordaje se registran
++        de forma individual en el Bloque 2 (Intervinientes).
++      </p>
++    </div>
++  );
++}
+diff --git a/src/components/IndicadorGuardado.tsx b/src/components/IndicadorGuardado.tsx
+new file mode 100644
+index 0000000..5717763
+--- /dev/null
++++ b/src/components/IndicadorGuardado.tsx
+@@ -0,0 +1,19 @@
++import type { EstadoGuardado } from "@/lib/useAutoguardado";
++
++export function IndicadorGuardado({ estado }: { estado: EstadoGuardado }) {
++  if (estado === "inactivo") return null;
++
++  const config: Record<Exclude<EstadoGuardado, "inactivo">, { texto: string; color: string }> = {
++    guardando: { texto: "Guardando…", color: "text-institucional-700" },
++    guardado: { texto: "Guardado", color: "text-estado-completo" },
++    error: { texto: "No se pudo guardar — reintentando…", color: "text-estado-error" },
++  };
++
++  const { texto, color } = config[estado];
++
++  return (
++    <span className={`font-sans text-xs ${color}`} role="status" aria-live="polite">
++      {texto}
++    </span>
++  );
++}
+diff --git a/src/lib/estados.ts b/src/lib/estados.ts
+new file mode 100644
+index 0000000..1faf8c3
+--- /dev/null
++++ b/src/lib/estados.ts
+@@ -0,0 +1,38 @@
++import type {
++  EstadoBloque,
++  FuncionarioActuante,
++  LugarProcedimiento,
++} from "@/lib/tipos";
++
++export function estadoFuncionario(funcionario: FuncionarioActuante | null): EstadoBloque {
++  if (!funcionario) return "vacio";
++  const requeridos = [
++    funcionario.nombreCompleto,
++    funcionario.documento,
++    funcionario.entidad,
++    funcionario.cargo,
++    funcionario.telefono,
++    funcionario.placa,
++    funcionario.zonaAtencion,
++    funcionario.estacion,
++    funcionario.servicio,
++  ];
++  return requeridos.every((v) => Boolean(v && v.trim())) ? "completo" : "pendiente";
++}
++
++export function estadoLugar(lugar: LugarProcedimiento | null): EstadoBloque {
++  if (!lugar) return "vacio";
++  const requeridos = [lugar.departamento, lugar.municipio, lugar.barrio, lugar.direccion];
++  return requeridos.every((v) => Boolean(v && v.trim())) ? "completo" : "pendiente";
++}
++
++export function estadoIntervinientes(cantidad: number | null): EstadoBloque {
++  if (cantidad === null) return "vacio";
++  return cantidad > 0 ? "completo" : "vacio";
++}
++
++export const PUNTO_ESTADO: Record<EstadoBloque, { emoji: string; color: string; texto: string }> = {
++  vacio: { emoji: "⚪", color: "text-institucional-700/50", texto: "Sin diligenciar" },
++  pendiente: { emoji: "🟡", color: "text-estado-pendiente", texto: "Pendiente" },
++  completo: { emoji: "🟢", color: "text-estado-completo", texto: "Completo" },
++};
+diff --git a/src/lib/tipos.ts b/src/lib/tipos.ts
+index 5ef626f..93375f0 100644
+--- a/src/lib/tipos.ts
++++ b/src/lib/tipos.ts
+@@ -5,11 +5,78 @@ export interface Procedimiento {
+   nunc: string | null;
+   fechaCaptura: string;
+   horaCaptura: string;
+-  fechaDisposicion: string;
+-  horaDisposicion: string;
++  fechaDisposicion: string | null;
++  horaDisposicion: string | null;
+   delito: string;
+   tipoProcedimiento: "ESTANDAR" | "COMPLEJO";
+   estado: string;
+   observacionesGenerales: string | null;
+   activo: boolean;
+ }
++
++export interface FuncionarioActuante {
++  nombreCompleto: string;
++  documento: string;
++  entidad: string;
++  cargo: string;
++  telefono: string;
++  correo: string;
++  placa: string;
++  zonaAtencion: string;
++  estacion: string;
++  servicio: string;
++  cai?: string;
++}
++
++export interface CompaneroPatrulla {
++  nombreCompleto: string;
++  documento: string;
++  placa: string;
++  grado?: string;
++}
++
++export interface LugarProcedimiento {
++  departamento: string;
++  municipio: string;
++  localidad?: string;
++  barrio: string;
++  direccion: string;
++  caracteristicas?: string;
++}
++
++export type EstadoBloque = "vacio" | "pendiente" | "completo";
++
++export interface ActuacionesProcedimiento {
++  derechosLeidos: boolean;
++  fechaDerechos: string;
++  horaDerechos: string;
++  comprendeDerechos: boolean;
++  usoEsposas: boolean;
++  justificacionEsposas?: string;
++  presentaLesiones: boolean;
++  descripcionLesiones?: string;
++  trasladoCentroAsistencial: boolean;
++  centroAsistencial?: string;
++  motivoTraslado?: string;
++  autoridadReceptora: string;
++  justificacionDemora?: string;
++  demoraExistente?: boolean;
++  // Bloque 6: Relato de los hechos
++  observacionInicial?: string;
++  desarrolloIntervencion?: string;
++  tieneCircunstanciaRelevante?: boolean;
++  circunstanciaRelevante?: string;
++  tieneObservacionAdicional?: boolean;
++  observacionAdicional?: string;
++}
++
++export const ACTUACIONES_VACIAS: ActuacionesProcedimiento = {
++  derechosLeidos: false,
++  fechaDerechos: "",
++  horaDerechos: "",
++  comprendeDerechos: false,
++  usoEsposas: false,
++  presentaLesiones: false,
++  trasladoCentroAsistencial: false,
++  autoridadReceptora: "",
++};
+diff --git a/src/lib/useAutoguardado.ts b/src/lib/useAutoguardado.ts
+new file mode 100644
+index 0000000..eb4bb35
+--- /dev/null
++++ b/src/lib/useAutoguardado.ts
+@@ -0,0 +1,71 @@
++import { useCallback, useEffect, useRef, useState } from "react";
++
++export type EstadoGuardado = "inactivo" | "guardando" | "guardado" | "error";
++
++/**
++ * Autoguardado con debounce: cada vez que `datos` cambia, espera
++ * `esperaMs` sin más cambios y luego llama a `alGuardar(datos)`.
++ * WF-M1-004/005: no existen botones manuales de guardado — todo se
++ * guarda automáticamente. UI-010: al menos al abandonar la pantalla.
++ */
++export function useAutoguardado<T>(
++  datos: T,
++  alGuardar: (datos: T) => Promise<unknown>,
++  opciones: { esperaMs?: number; activo?: boolean } = {},
++) {
++  const { esperaMs = 1200, activo = true } = opciones;
++  const [estado, setEstado] = useState<EstadoGuardado>("inactivo");
++  const primerRenderRef = useRef(true);
++  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
++  const ultimoGuardadoRef = useRef<string>(JSON.stringify(datos));
++
++  const guardarAhora = useCallback(
++    async (valor: T) => {
++      const serializado = JSON.stringify(valor);
++      if (serializado === ultimoGuardadoRef.current) return;
++      setEstado("guardando");
++      try {
++        await alGuardar(valor);
++        ultimoGuardadoRef.current = serializado;
++        setEstado("guardado");
++      } catch {
++        setEstado("error");
++      }
++    },
++    [alGuardar],
++  );
++
++  useEffect(() => {
++    if (primerRenderRef.current) {
++      primerRenderRef.current = false;
++      ultimoGuardadoRef.current = JSON.stringify(datos);
++      return;
++    }
++    if (!activo) return;
++
++    if (timeoutRef.current) clearTimeout(timeoutRef.current);
++    timeoutRef.current = setTimeout(() => {
++      void guardarAhora(datos);
++    }, esperaMs);
++
++    return () => {
++      if (timeoutRef.current) clearTimeout(timeoutRef.current);
++    };
++    // eslint-disable-next-line react-hooks/exhaustive-deps
++  }, [JSON.stringify(datos), activo]);
++
++  // Guardar de inmediato al desmontar (cambiar de pantalla), sin esperar
++  // el debounce — UI-010: "guardarse automáticamente al abandonar la pantalla".
++  useEffect(() => {
++    return () => {
++      if (timeoutRef.current) clearTimeout(timeoutRef.current);
++      const serializado = JSON.stringify(datos);
++      if (serializado !== ultimoGuardadoRef.current) {
++        void alGuardar(datos);
++      }
++    };
++    // eslint-disable-next-line react-hooks/exhaustive-deps
++  }, []);
++
++  return { estado, guardarAhora: () => guardarAhora(datos) };
++}
+-- 
+2.43.0
+
