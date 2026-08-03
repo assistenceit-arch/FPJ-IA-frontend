@@ -29,6 +29,7 @@ interface Capturado {
   direccion: string | null;
   telefono: string | null;
   senalesParticulares: string | null;
+  descripcionFisicaVestimenta: string | null;
   nombrePadres: string | null;
   telefonoPadres: string | null;
   nombreAcudiente: string | null;
@@ -142,6 +143,7 @@ export default function EditarInterviniente() {
         "direccion",
         "telefono",
         "senalesParticulares",
+        "descripcionFisicaVestimenta",
         "nombrePadres",
         "telefonoPadres",
         "nombreAcudiente",
@@ -382,6 +384,20 @@ export default function EditarInterviniente() {
             onChange={(e) => set({ correo: e.target.value })}
           />
         </Campo>
+      </Seccion>
+
+      <Seccion titulo="Descripción física y vestimenta">
+        <div className="sm:col-span-2">
+          <Campo etiqueta="Descripción física y de vestimenta del interviniente">
+            <textarea
+              rows={2}
+              className={claseInput}
+              value={p.descripcionFisicaVestimenta ?? ""}
+              onChange={(e) => set({ descripcionFisicaVestimenta: e.target.value })}
+              placeholder="Contextura, estatura aproximada, color de piel, cabello, prendas que vestía, etc."
+            />
+          </Campo>
+        </div>
       </Seccion>
 
       <Seccion titulo="Señales particulares">
