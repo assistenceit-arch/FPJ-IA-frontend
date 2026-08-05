@@ -57,17 +57,15 @@ export function estadoElementos(cantidadElementos: number | null): EstadoBloque 
  * "completo" solo si además: (a) los campos condicionales de cada
  * subsección están llenos cuando la pregunta Sí/No correspondiente fue
  * "Sí", (b) la puesta a disposición (fecha/hora, guardadas en el
- * Procedimiento) está diligenciada, (c) si el backend marcó
- * demoraExistente, hay justificación de la demora, y (d) cada
- * interviniente Aprehendido tiene respondida la pregunta de uso de
- * esposas (Adenda 2026-08-03: pasó de ser una sola respuesta del
+ * Procedimiento) está diligenciada, (c) si hay demora, hay justificación,
+ * y (d) cada interviniente Aprehendido tiene respondida la pregunta de
+ * uso de esposas (Adenda 2026-08-03: pasó de ser una sola respuesta del
  * procedimiento a una pregunta individual por interviniente Aprehendido).
  *
- * Nota: demoraExistente viene calculado por el backend en el último
- * guardado de actuaciones-procedimiento. Si la puesta a disposición se
- * edita después sin volver a tocar ningún campo de este bloque, ese valor
- * puede quedar desactualizado hasta el próximo guardado — es el mismo
- * pendiente de "revisar el flujo de demora" del roadmap.
+ * Nota (actualizada 2026-08-04): demoraExistente lo calcula el backend
+ * al vuelo cada vez que se consulta este bloque (no es un valor
+ * guardado), así que siempre refleja el estado actual sin importar si se
+ * edita primero la lectura de derechos o la puesta a disposición.
  */
 export function estadoActuaciones(
   actuaciones: ActuacionesProcedimiento | null,
