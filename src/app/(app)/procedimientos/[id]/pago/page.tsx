@@ -4,6 +4,7 @@ import { useEffect, useState, FormEvent } from "react";
 import { useParams } from "next/navigation";
 import { api, ApiError } from "@/lib/api";
 import { payloadToken } from "@/lib/auth";
+import { descargarArchivo } from "@/lib/descargarArchivo";
 
 interface Pago {
   id: string;
@@ -20,6 +21,8 @@ interface Pago {
 
 const claseInput =
   "block w-full rounded-md border border-institucional-100 bg-white px-3 py-2 font-sans text-sm text-institucional-950 outline-none focus:border-acento";
+
+const TIPOS_ACEPTADOS = ".jpg,.jpeg,.png,.webp,.pdf";
 
 function Campo({ etiqueta, requerido, children }: { etiqueta: string; requerido?: boolean; children: React.ReactNode }) {
   return (
@@ -71,11 +74,12 @@ export default function BloquePago() {
   const [fechaPago, setFechaPago] = useState("");
   const [medioPago, setMedioPago] = useState("");
   const [referenciaPago, setReferenciaPago] = useState("");
-  const [comprobantePago, setComprobantePago] = useState("");
+  const [comprobante, setComprobante] = useState<File | null>(null);
   const [registrando, setRegistrando] = useState(false);
 
   const [observacion, setObservacion] = useState("");
   const [verificando, setVerificando] = useState<"Verificado" | "Rechazado" | null>(null);
+  const [descargando, setDescargando] = useState(false);
 
   useEffect(() => {
     setEsAdministrador(payloadToken()?.rol === "ADMINISTRADOR");
@@ -101,18 +105,25 @@ export default function BloquePago() {
   async function registrar(evento: FormEvent) {
     evento.preventDefault();
     setError(null);
+
+    if (!comprobante) {
+      setError("Debes adjuntar el comprobante de la transferencia.");
+      return;
+    }
+
     setRegistrando(true);
     try {
-      await api.post(`/procedimientos/${id}/pago`, {
-        fechaPago: `${fechaPago}T00:00:00.000Z`,
-        medioPago,
-        referenciaPago,
-        comprobantePago: comprobantePago.trim() || undefined,
-      });
+      const formData = new FormData();
+      formData.append("fechaPago", `${fechaPago}T00:00:00.000Z`);
+      formData.append("medioPago", medioPago);
+      formData.append("referenciaPago", referenciaPago);
+      formData.append("comprobante", comprobante);
+
+      await api.postFormData(`/procedimientos/${id}/pago`, formData);
       setFechaPago("");
       setMedioPago("");
       setReferenciaPago("");
-      setComprobantePago("");
+      setComprobante(null);
       await cargar();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "No fue posible registrar el pago.");
@@ -136,6 +147,13 @@ export default function BloquePago() {
     } finally {
       setVerificando(null);
     }
+  }
+
+  async function descargarComprobante() {
+    setDescargando(true);
+    const ok = await descargarArchivo(`/procedimientos/${id}/pago/comprobante`, `comprobante-pago-${id}`);
+    if (!ok) setError("No fue posible descargar el comprobante.");
+    setDescargando(false);
   }
 
   if (cargando) return <p className="font-sans text-sm text-institucional-700">Cargando…</p>;
@@ -190,13 +208,18 @@ export default function BloquePago() {
                 onChange={(e) => setReferenciaPago(e.target.value)}
               />
             </Campo>
-            <Campo etiqueta="Comprobante (enlace o referencia adicional)">
+            <Campo etiqueta="Comprobante de la transferencia (imagen o PDF)" requerido>
               <input
+                required
+                type="file"
+                accept={TIPOS_ACEPTADOS}
                 className={claseInput}
-                placeholder="Opcional"
-                value={comprobantePago}
-                onChange={(e) => setComprobantePago(e.target.value)}
+                onChange={(e) => setComprobante(e.target.files?.[0] ?? null)}
               />
+              <p className="mt-1 font-sans text-xs text-institucional-700">
+                Debe verse claramente la fecha, el número de referencia y el valor del movimiento. JPG,
+                PNG, WEBP o PDF — máximo 10 MB.
+              </p>
             </Campo>
             <button
               type="submit"
@@ -233,8 +256,17 @@ export default function BloquePago() {
             </div>
             {pago.comprobantePago && (
               <div className="sm:col-span-2">
-                <dt className="font-sans text-xs text-institucional-700">Comprobante</dt>
-                <dd className="font-sans text-sm text-institucional-950">{pago.comprobantePago}</dd>
+                <dt className="font-sans text-xs text-institucional-700">Comprobante adjunto</dt>
+                <dd className="mt-1">
+                  <button
+                    type="button"
+                    onClick={descargarComprobante}
+                    disabled={descargando}
+                    className="rounded-md border border-institucional-100 px-3 py-1.5 font-sans text-xs text-institucional-800 transition-colors hover:bg-institucional-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {descargando ? "Descargando…" : "Descargar / ver comprobante"}
+                  </button>
+                </dd>
               </div>
             )}
           </dl>

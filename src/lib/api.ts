@@ -26,8 +26,14 @@ interface OpcionesApi extends RequestInit {
 export async function apiFetch<T>(ruta: string, opciones: OpcionesApi = {}): Promise<T> {
   const { conAuth = true, headers, ...resto } = opciones;
 
+  // Si el body es FormData (ej. subir un archivo), NO se fija
+  // Content-Type: application/json ni "application/json" a secas —
+  // el navegador arma el multipart/form-data con el boundary correcto
+  // solo si el header Content-Type lo dejamos que lo ponga fetch.
+  const esFormData = typeof FormData !== "undefined" && resto.body instanceof FormData;
+
   const headersFinales: Record<string, string> = {
-    "Content-Type": "application/json",
+    ...(esFormData ? {} : { "Content-Type": "application/json" }),
     ...(headers as Record<string, string>),
   };
 
@@ -67,6 +73,10 @@ export const api = {
   get: <T>(ruta: string, opciones?: OpcionesApi) => apiFetch<T>(ruta, { ...opciones, method: "GET" }),
   post: <T>(ruta: string, body?: unknown, opciones?: OpcionesApi) =>
     apiFetch<T>(ruta, { ...opciones, method: "POST", body: body ? JSON.stringify(body) : undefined }),
+  // Para endpoints que reciben un archivo (multipart/form-data), ej.
+  // registrar el pago con el comprobante adjunto.
+  postFormData: <T>(ruta: string, formData: FormData, opciones?: OpcionesApi) =>
+    apiFetch<T>(ruta, { ...opciones, method: "POST", body: formData }),
   put: <T>(ruta: string, body?: unknown, opciones?: OpcionesApi) =>
     apiFetch<T>(ruta, { ...opciones, method: "PUT", body: body ? JSON.stringify(body) : undefined }),
   patch: <T>(ruta: string, body?: unknown, opciones?: OpcionesApi) =>

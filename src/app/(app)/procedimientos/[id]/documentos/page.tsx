@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { api, ApiError } from "@/lib/api";
-import { obtenerToken } from "@/lib/auth";
+import { descargarArchivo } from "@/lib/descargarArchivo";
 
 interface CapturadoResumen {
   id: string;
@@ -45,8 +45,6 @@ const ETIQUETA_TIPO_DOCUMENTO: Record<string, string> = {
   FPJ7: "FPJ-7 — Rótulo EMP/EF",
   FPJ8: "FPJ-8 — Cadena de Custodia",
 };
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000/api";
 
 function Seccion({
   titulo,
@@ -131,25 +129,8 @@ export default function BloqueDocumentos() {
   }, [id]);
 
   async function descargar(documentoId: string, nombreSugerido: string) {
-    try {
-      const token = obtenerToken();
-      const respuesta = await fetch(`${API_URL}/documentos/${documentoId}/descargar`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-      if (!respuesta.ok) {
-        setError("El documento se generó, pero no fue posible descargarlo automáticamente.");
-        return;
-      }
-      const blob = await respuesta.blob();
-      const url = URL.createObjectURL(blob);
-      const enlace = document.createElement("a");
-      enlace.href = url;
-      enlace.download = nombreSugerido;
-      document.body.appendChild(enlace);
-      enlace.click();
-      enlace.remove();
-      URL.revokeObjectURL(url);
-    } catch {
+    const ok = await descargarArchivo(`/documentos/${documentoId}/descargar`, nombreSugerido);
+    if (!ok) {
       setError("El documento se generó, pero no fue posible descargarlo automáticamente.");
     }
   }
