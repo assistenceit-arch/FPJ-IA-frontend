@@ -13,6 +13,7 @@ import type {
 } from "@/lib/tipos";
 import {
   estadoActuaciones,
+  estadoDocumentos,
   estadoElementos,
   estadoFuncionario,
   estadoIntervinientes,
@@ -47,12 +48,13 @@ export default function LayoutProcedimiento({ children }: { children: React.Reac
       // Cada bloque se consulta de forma independiente y tolerante a
       // fallos: si un módulo todavía no tiene datos (o su endpoint aún
       // está en construcción), no debe romper la navegación de los demás.
-      const [funcionario, lugar, capturados, actuaciones, procedimiento] = await Promise.all([
+      const [funcionario, lugar, capturados, actuaciones, procedimiento, documentos] = await Promise.all([
         api.get<FuncionarioActuante | null>(`/procedimientos/${id}/funcionario-actuante`).catch(() => null),
         api.get<LugarProcedimiento | null>(`/procedimientos/${id}/lugar-procedimiento`).catch(() => null),
         api.get<CapturadoResumen[]>(`/procedimientos/${id}/capturados`).catch(() => null),
         api.get<ActuacionesProcedimiento | null>(`/procedimientos/${id}/actuaciones-procedimiento`).catch(() => null),
         api.get<Procedimiento>(`/procedimientos/${id}`).catch(() => null),
+        api.get<unknown[]>(`/procedimientos/${id}/documentos`).catch(() => null),
       ]);
 
       // El total de elementos incautados se calcula sumando los de cada
@@ -94,6 +96,12 @@ export default function LayoutProcedimiento({ children }: { children: React.Reac
           ),
         },
         { slug: "relato", numero: 6, titulo: "Relato de los hechos", estado: estadoRelato(actuaciones) },
+        {
+          slug: "documentos",
+          numero: 7,
+          titulo: "Documentos",
+          estado: estadoDocumentos(documentos?.length ?? null),
+        },
       ]);
     }
 

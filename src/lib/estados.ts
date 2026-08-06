@@ -132,6 +132,16 @@ export function estadoRelato(actuaciones: ActuacionesProcedimiento | null): Esta
   return requeridos.every((v) => Boolean(v && v.trim())) ? "completo" : "pendiente";
 }
 
+/**
+ * Bloque 7 — Documentos. No es un formulario de datos, es una pantalla de
+ * acciones (generar/descargar), así que el estado es binario e
+ * informativo: ¿ya se generó al menos un documento en este procedimiento?
+ */
+export function estadoDocumentos(cantidadGenerados: number | null): EstadoBloque {
+  if (cantidadGenerados === null) return "vacio";
+  return cantidadGenerados > 0 ? "completo" : "vacio";
+}
+
 export const PUNTO_ESTADO: Record<EstadoBloque, { emoji: string; color: string; texto: string }> = {
   vacio: { emoji: "⚪", color: "text-institucional-700/50", texto: "Sin diligenciar" },
   pendiente: { emoji: "🟡", color: "text-estado-pendiente", texto: "Pendiente" },
