@@ -1,0 +1,283 @@
+"use client";
+
+import { useEffect, useState, FormEvent } from "react";
+import { useParams } from "next/navigation";
+import { api, ApiError } from "@/lib/api";
+import { payloadToken } from "@/lib/auth";
+
+interface Pago {
+  id: string;
+  procedimientoId: string;
+  fechaPago: string;
+  valor: string | number;
+  medioPago: string;
+  referenciaPago: string;
+  comprobantePago: string | null;
+  estadoPago: "Pendiente" | "Verificado" | "Rechazado";
+  createdAt: string;
+  updatedAt: string;
+}
+
+const claseInput =
+  "block w-full rounded-md border border-institucional-100 bg-white px-3 py-2 font-sans text-sm text-institucional-950 outline-none focus:border-acento";
+
+function Campo({ etiqueta, requerido, children }: { etiqueta: string; requerido?: boolean; children: React.ReactNode }) {
+  return (
+    <label className="block">
+      <span className="mb-1 block font-sans text-sm font-medium text-institucional-900">
+        {etiqueta}
+        {requerido && <span className="text-estado-error"> *</span>}
+      </span>
+      {children}
+    </label>
+  );
+}
+
+function Seccion({ titulo, children }: { titulo: string; children: React.ReactNode }) {
+  return (
+    <div className="rounded-lg border border-institucional-100 bg-white p-6 shadow-sm">
+      <h2 className="font-display text-lg text-institucional-950">{titulo}</h2>
+      <div className="mt-4 space-y-4">{children}</div>
+    </div>
+  );
+}
+
+function BadgeEstado({ estado }: { estado: Pago["estadoPago"] }) {
+  const estilos: Record<Pago["estadoPago"], string> = {
+    Pendiente: "bg-estado-pendiente/15 text-estado-pendiente",
+    Verificado: "bg-estado-completo/15 text-estado-completo",
+    Rechazado: "bg-estado-error/15 text-estado-error",
+  };
+  return (
+    <span className={`inline-block rounded-full px-3 py-1 font-sans text-xs font-semibold ${estilos[estado]}`}>
+      {estado}
+    </span>
+  );
+}
+
+function formatearValor(valor: string | number): string {
+  const numero = typeof valor === "string" ? Number(valor) : valor;
+  if (Number.isNaN(numero)) return String(valor);
+  return numero.toLocaleString("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
+}
+
+export default function BloquePago() {
+  const { id } = useParams<{ id: string }>();
+  const [pago, setPago] = useState<Pago | null>(null);
+  const [cargando, setCargando] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [esAdministrador, setEsAdministrador] = useState(false);
+
+  const [fechaPago, setFechaPago] = useState("");
+  const [medioPago, setMedioPago] = useState("");
+  const [referenciaPago, setReferenciaPago] = useState("");
+  const [comprobantePago, setComprobantePago] = useState("");
+  const [registrando, setRegistrando] = useState(false);
+
+  const [observacion, setObservacion] = useState("");
+  const [verificando, setVerificando] = useState<"Verificado" | "Rechazado" | null>(null);
+
+  useEffect(() => {
+    setEsAdministrador(payloadToken()?.rol === "ADMINISTRADOR");
+  }, []);
+
+  async function cargar() {
+    try {
+      const p = await api.get<Pago | null>(`/procedimientos/${id}/pago`);
+      setPago(p);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "No fue posible cargar el estado del pago.");
+    } finally {
+      setCargando(false);
+    }
+  }
+
+  useEffect(() => {
+    cargar();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
+
+  async function registrar(evento: FormEvent) {
+    evento.preventDefault();
+    setError(null);
+    setRegistrando(true);
+    try {
+      await api.post(`/procedimientos/${id}/pago`, {
+        fechaPago: `${fechaPago}T00:00:00.000Z`,
+        medioPago,
+        referenciaPago,
+        comprobantePago: comprobantePago.trim() || undefined,
+      });
+      setFechaPago("");
+      setMedioPago("");
+      setReferenciaPago("");
+      setComprobantePago("");
+      await cargar();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "No fue posible registrar el pago.");
+    } finally {
+      setRegistrando(false);
+    }
+  }
+
+  async function verificar(estadoPago: "Verificado" | "Rechazado") {
+    setError(null);
+    setVerificando(estadoPago);
+    try {
+      await api.patch(`/procedimientos/${id}/pago/verificar`, {
+        estadoPago,
+        observacion: observacion.trim() || undefined,
+      });
+      setObservacion("");
+      await cargar();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "No fue posible actualizar el pago.");
+    } finally {
+      setVerificando(null);
+    }
+  }
+
+  if (cargando) return <p className="font-sans text-sm text-institucional-700">Cargando…</p>;
+
+  const necesitaRegistrar = !pago || pago.estadoPago === "Rechazado";
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="font-display text-2xl text-institucional-950">8. Pago</h1>
+        <p className="mt-1 font-sans text-sm text-institucional-700">
+          El pago debe quedar <strong>Verificado</strong> por un administrador antes de poder generar
+          documentos en el Bloque 7.
+        </p>
+      </div>
+
+      {error && (
+        <p className="rounded-md bg-estado-error/10 px-3 py-2.5 font-sans text-sm text-estado-error">{error}</p>
+      )}
+
+      {necesitaRegistrar && (
+        <Seccion titulo={pago?.estadoPago === "Rechazado" ? "Registrar un nuevo pago" : "Registrar pago"}>
+          {pago?.estadoPago === "Rechazado" && (
+            <p className="rounded-md bg-estado-error/10 px-3 py-2.5 font-sans text-sm text-estado-error">
+              El pago anterior fue rechazado. Verifica la información y registra uno nuevo.
+            </p>
+          )}
+          <form onSubmit={registrar} className="space-y-4">
+            <Campo etiqueta="Fecha del pago" requerido>
+              <input
+                required
+                type="date"
+                className={claseInput}
+                value={fechaPago}
+                onChange={(e) => setFechaPago(e.target.value)}
+              />
+            </Campo>
+            <Campo etiqueta="Medio de pago" requerido>
+              <input
+                required
+                className={claseInput}
+                placeholder="Ej. Transferencia Bancolombia, Nequi, consignación…"
+                value={medioPago}
+                onChange={(e) => setMedioPago(e.target.value)}
+              />
+            </Campo>
+            <Campo etiqueta="Referencia / número de comprobante" requerido>
+              <input
+                required
+                className={claseInput}
+                value={referenciaPago}
+                onChange={(e) => setReferenciaPago(e.target.value)}
+              />
+            </Campo>
+            <Campo etiqueta="Comprobante (enlace o referencia adicional)">
+              <input
+                className={claseInput}
+                placeholder="Opcional"
+                value={comprobantePago}
+                onChange={(e) => setComprobantePago(e.target.value)}
+              />
+            </Campo>
+            <button
+              type="submit"
+              disabled={registrando}
+              className="rounded-md bg-acento px-4 py-2 font-sans text-sm font-semibold text-white shadow-sm transition-colors hover:bg-acento-hover disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {registrando ? "Registrando…" : "Registrar pago"}
+            </button>
+          </form>
+        </Seccion>
+      )}
+
+      {pago && !necesitaRegistrar && (
+        <Seccion titulo="Estado del pago">
+          <BadgeEstado estado={pago.estadoPago} />
+          <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div>
+              <dt className="font-sans text-xs text-institucional-700">Fecha del pago</dt>
+              <dd className="font-sans text-sm text-institucional-950">
+                {new Date(pago.fechaPago).toLocaleDateString("es-CO")}
+              </dd>
+            </div>
+            <div>
+              <dt className="font-sans text-xs text-institucional-700">Valor</dt>
+              <dd className="font-sans text-sm text-institucional-950">{formatearValor(pago.valor)}</dd>
+            </div>
+            <div>
+              <dt className="font-sans text-xs text-institucional-700">Medio de pago</dt>
+              <dd className="font-sans text-sm text-institucional-950">{pago.medioPago}</dd>
+            </div>
+            <div>
+              <dt className="font-sans text-xs text-institucional-700">Referencia</dt>
+              <dd className="font-sans text-sm text-institucional-950">{pago.referenciaPago}</dd>
+            </div>
+            {pago.comprobantePago && (
+              <div className="sm:col-span-2">
+                <dt className="font-sans text-xs text-institucional-700">Comprobante</dt>
+                <dd className="font-sans text-sm text-institucional-950">{pago.comprobantePago}</dd>
+              </div>
+            )}
+          </dl>
+        </Seccion>
+      )}
+
+      {pago && pago.estadoPago === "Pendiente" && esAdministrador && (
+        <Seccion titulo="Verificar pago (solo administradores)">
+          <Campo etiqueta="Observación">
+            <textarea
+              rows={2}
+              className={claseInput}
+              placeholder="Opcional — motivo si vas a rechazar, o cualquier nota"
+              value={observacion}
+              onChange={(e) => setObservacion(e.target.value)}
+            />
+          </Campo>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              disabled={verificando !== null}
+              onClick={() => verificar("Verificado")}
+              className="rounded-md bg-estado-completo px-4 py-2 font-sans text-sm font-semibold text-white shadow-sm transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {verificando === "Verificado" ? "Aprobando…" : "Aprobar pago"}
+            </button>
+            <button
+              type="button"
+              disabled={verificando !== null}
+              onClick={() => verificar("Rechazado")}
+              className="rounded-md border border-estado-error px-4 py-2 font-sans text-sm font-semibold text-estado-error transition-colors hover:bg-estado-error/10 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {verificando === "Rechazado" ? "Rechazando…" : "Rechazar pago"}
+            </button>
+          </div>
+        </Seccion>
+      )}
+
+      {pago && pago.estadoPago === "Pendiente" && !esAdministrador && (
+        <p className="rounded-md bg-institucional-100 px-3 py-2.5 font-sans text-xs text-institucional-800">
+          El pago está registrado y pendiente de verificación por un administrador.
+        </p>
+      )}
+    </div>
+  );
+}

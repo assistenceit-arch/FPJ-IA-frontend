@@ -27,6 +27,10 @@ interface DocumentoGenerado {
   estado: string;
 }
 
+interface Pago {
+  estadoPago: "Pendiente" | "Verificado" | "Rechazado";
+}
+
 const ETIQUETA_TIPO_ELEMENTO: Record<ElementoResumen["tipoElemento"], string> = {
   SUSTANCIA: "Sustancia",
   DINERO: "Dinero",
@@ -88,6 +92,7 @@ export default function BloqueDocumentos() {
   const [intervinientes, setIntervinientes] = useState<CapturadoResumen[]>([]);
   const [elementosPorPersona, setElementosPorPersona] = useState<Record<string, ElementoResumen[]>>({});
   const [generados, setGenerados] = useState<DocumentoGenerado[]>([]);
+  const [pago, setPago] = useState<Pago | null>(null);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [botonCargando, setBotonCargando] = useState<string | null>(null);
@@ -100,12 +105,14 @@ export default function BloqueDocumentos() {
   const [generandoFpj5, setGenerandoFpj5] = useState(false);
 
   async function cargarTodo() {
-    const [personas, docs] = await Promise.all([
+    const [personas, docs, estadoPago] = await Promise.all([
       api.get<CapturadoResumen[]>(`/procedimientos/${id}/capturados`),
       api.get<DocumentoGenerado[]>(`/procedimientos/${id}/documentos`),
+      api.get<Pago | null>(`/procedimientos/${id}/pago`).catch(() => null),
     ]);
     setIntervinientes(personas);
     setGenerados(docs);
+    setPago(estadoPago);
     const listas = await Promise.all(
       personas.map((p) => api.get<ElementoResumen[]>(`/procedimientos/${id}/capturados/${p.id}/elementos`)),
     );
@@ -257,6 +264,15 @@ export default function BloqueDocumentos() {
       {error && (
         <p className="rounded-md bg-estado-error/10 px-3 py-2.5 font-sans text-sm text-estado-error">
           {error}
+        </p>
+      )}
+
+      {pago?.estadoPago !== "Verificado" && (
+        <p className="rounded-md bg-estado-pendiente/10 px-3 py-2.5 font-sans text-sm text-estado-pendiente">
+          {!pago && "Este procedimiento no tiene un pago registrado. "}
+          {pago?.estadoPago === "Pendiente" && "El pago está registrado pero aún no ha sido verificado por un administrador. "}
+          {pago?.estadoPago === "Rechazado" && "El pago fue rechazado — registra uno nuevo en el Bloque 8. "}
+          No podrás generar documentos hasta que el pago quede <strong>Verificado</strong> (Bloque 8).
         </p>
       )}
 

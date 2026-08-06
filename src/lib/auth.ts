@@ -23,9 +23,11 @@ export function cerrarSesion() {
 }
 
 /** Decodifica el payload del JWT sin verificar la firma (solo para leer
- * datos en el cliente, ej. el correo a mostrar; la verificación real la
- * hace siempre el backend). */
-export function payloadToken(): { sub: string; correo: string } | null {
+ * datos en el cliente, ej. el correo o el rol a mostrar; la verificación
+ * real siempre la hace el backend — cualquier endpoint sensible por rol
+ * ya está protegido allá con @Roles, esto es solo para mostrar/ocultar
+ * partes de la interfaz). */
+export function payloadToken(): { sub: string; correo: string; rol: string } | null {
   const token = obtenerToken();
   if (!token) return null;
   try {

@@ -142,6 +142,17 @@ export function estadoDocumentos(cantidadGenerados: number | null): EstadoBloque
   return cantidadGenerados > 0 ? "completo" : "vacio";
 }
 
+/**
+ * Bloque 8 — Pago. "Vacío" si no hay pago registrado, "pendiente" si
+ * está registrado pero aún no lo verifica un administrador (o fue
+ * rechazado y toca registrar uno nuevo), "completo" solo si quedó
+ * Verificado.
+ */
+export function estadoPago(pago: { estadoPago: string } | null): EstadoBloque {
+  if (!pago) return "vacio";
+  return pago.estadoPago === "Verificado" ? "completo" : "pendiente";
+}
+
 export const PUNTO_ESTADO: Record<EstadoBloque, { emoji: string; color: string; texto: string }> = {
   vacio: { emoji: "⚪", color: "text-institucional-700/50", texto: "Sin diligenciar" },
   pendiente: { emoji: "🟡", color: "text-estado-pendiente", texto: "Pendiente" },
