@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { api, ApiError } from "@/lib/api";
@@ -10,8 +10,19 @@ function ContenidoVerificacion() {
   const token = parametros.get("token");
   const [estado, setEstado] = useState<"verificando" | "exito" | "error">("verificando");
   const [mensaje, setMensaje] = useState("");
+  // React (modo desarrollo) ejecuta los efectos dos veces seguidas al
+  // montar un componente (Strict Mode), para detectar efectos
+  // secundarios mal escritos. Como verificar el correo consume el token
+  // (una vez usado, deja de ser válido), la segunda ejecución fallaba y
+  // esa era la respuesta que quedaba visible en pantalla, aunque la
+  // primera sí hubiera verificado correctamente. Esta ref evita que la
+  // petición se repita dentro del mismo montaje.
+  const yaEjecutado = useRef(false);
 
   useEffect(() => {
+    if (yaEjecutado.current) return;
+    yaEjecutado.current = true;
+
     if (!token) {
       setEstado("error");
       setMensaje("El enlace de verificación no incluye un token válido.");
