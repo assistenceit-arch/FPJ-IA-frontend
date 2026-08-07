@@ -25,7 +25,7 @@ function Campo({ etiqueta, requerido, children }: { etiqueta: string; requerido?
   );
 }
 
-function SiNo({ valor, onChange }: { valor: boolean; onChange: (v: boolean) => void }) {
+function SiNo({ valor, onChange }: { valor: boolean | null; onChange: (v: boolean) => void }) {
   return (
     <div className="flex gap-3">
       {[true, false].map((v) => (
@@ -62,11 +62,18 @@ function FilaEsposas({
   procedimientoId: string;
   persona: { id: string; primerNombre: string; primerApellido: string; usoEsposas: boolean | null; justificacionEsposas: string | null };
 }) {
-  const [usoEsposas, setUsoEsposas] = useState(persona.usoEsposas ?? false);
+  // Adenda 2026-08-06: antes iniciaba en `false` por defecto, lo que
+  // mostraba el botón "No" ya seleccionado sin que el funcionario
+  // hubiera respondido de verdad. Si nunca hacía clic (porque ya se veía
+  // "contestado"), nada se guardaba y el Bloque 5 se quedaba en amarillo
+  // para siempre. Ahora inicia genuinamente sin responder (null) hasta
+  // que el funcionario elige Sí o No de forma explícita.
+  const [usoEsposas, setUsoEsposas] = useState<boolean | null>(persona.usoEsposas);
   const [justificacionEsposas, setJustificacionEsposas] = useState(persona.justificacionEsposas ?? "");
 
   const guardar = useCallback(
-    async (valor: { usoEsposas: boolean; justificacionEsposas: string }) => {
+    async (valor: { usoEsposas: boolean | null; justificacionEsposas: string }) => {
+      if (valor.usoEsposas === null) return;
       await api.patch(`/procedimientos/${procedimientoId}/capturados/${persona.id}`, valor);
     },
     [procedimientoId, persona.id],

@@ -346,11 +346,17 @@ export default function EditarInterviniente() {
           </select>
         </Campo>
         <Campo etiqueta="Estado civil">
-          <input
+          <select
             className={claseInput}
             value={p.estadoCivil ?? ""}
             onChange={(e) => set({ estadoCivil: e.target.value })}
-          />
+          >
+            <option value="">-- Selecciona --</option>
+            <option value="Soltero">Soltero(a)</option>
+            <option value="Casado">Casado(a)</option>
+            <option value="Unión libre">Unión libre</option>
+            <option value="Viudo">Viudo(a)</option>
+          </select>
         </Campo>
         <Campo etiqueta="Ocupación u oficio">
           <input
@@ -378,7 +384,8 @@ export default function EditarInterviniente() {
         </Campo>
         <Campo etiqueta="Correo electrónico">
           <input
-            type="email"
+            type="text"
+            placeholder="correo@ejemplo.com o «No aporta»"
             className={claseInput}
             value={p.correo ?? ""}
             onChange={(e) => set({ correo: e.target.value })}
