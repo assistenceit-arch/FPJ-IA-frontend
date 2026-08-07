@@ -143,12 +143,17 @@ export function estadoDocumentos(cantidadGenerados: number | null): EstadoBloque
 }
 
 /**
- * Bloque 8 — Pago. "Vacío" si no hay pago registrado, "pendiente" si
- * está registrado pero aún no lo verifica un administrador (o fue
- * rechazado y toca registrar uno nuevo), "completo" solo si quedó
- * Verificado.
+ * Bloque 8 — Pago. "Vacío" si no hay pago registrado (y el procedimiento
+ * no está exonerado), "pendiente" si está registrado pero aún no lo
+ * verifica un administrador (o fue rechazado y toca registrar uno
+ * nuevo), "completo" si quedó Verificado o si un administrador exoneró
+ * el procedimiento del requisito de pago.
  */
-export function estadoPago(pago: { estadoPago: string } | null): EstadoBloque {
+export function estadoPago(
+  pago: { estadoPago: string } | null,
+  exoneradoPago = false,
+): EstadoBloque {
+  if (exoneradoPago) return "completo";
   if (!pago) return "vacio";
   return pago.estadoPago === "Verificado" ? "completo" : "pendiente";
 }

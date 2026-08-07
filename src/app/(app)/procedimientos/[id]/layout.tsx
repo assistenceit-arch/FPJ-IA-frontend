@@ -108,7 +108,7 @@ export default function LayoutProcedimiento({ children }: { children: React.Reac
           slug: "pago",
           numero: 8,
           titulo: "Pago",
-          estado: estadoPago(pago),
+          estado: estadoPago(pago, procedimiento?.exoneradoPago),
         },
       ]);
     }

@@ -12,6 +12,7 @@ export interface Procedimiento {
   estado: string;
   observacionesGenerales: string | null;
   activo: boolean;
+  exoneradoPago: boolean;
 }
 
 export interface FuncionarioActuante {
