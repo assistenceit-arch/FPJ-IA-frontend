@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 
 const NOMBRE_COOKIE = "fpj_ia_token";
-const RUTAS_PUBLICAS = ["/login"];
+// Adenda 2026-08-06: /registro y /verificar-correo se agregan como
+// públicas -- el registro autónomo se hace precisamente SIN estar
+// logueado, así que el middleware no debe exigir token ahí (antes
+// redirigía a /login sin importar que la ruta existiera, porque solo
+// "/login" estaba en la lista).
+const RUTAS_PUBLICAS = ["/login", "/registro", "/verificar-correo"];
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
