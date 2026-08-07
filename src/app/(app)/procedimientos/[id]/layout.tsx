@@ -41,6 +41,7 @@ export default function LayoutProcedimiento({ children }: { children: React.Reac
   const pathname = usePathname();
   const { id } = useParams<{ id: string }>();
   const [bloques, setBloques] = useState<ItemBloque[] | null>(null);
+  const [bloqueado, setBloqueado] = useState(false);
 
   useEffect(() => {
     let cancelado = false;
@@ -76,6 +77,11 @@ export default function LayoutProcedimiento({ children }: { children: React.Reac
       }
 
       if (cancelado) return;
+
+      // Adenda 2026-08-06: en cuanto hay al menos un documento generado,
+      // el backend congela la edición de todos los datos base del
+      // procedimiento (ver ProcedimientoAccesoService.verificarNoBloqueado).
+      setBloqueado((documentos?.length ?? 0) > 0);
 
       setBloques([
         { slug: "funcionario", numero: 1, titulo: "Funcionario y compañero", estado: estadoFuncionario(funcionario) },
@@ -152,7 +158,16 @@ export default function LayoutProcedimiento({ children }: { children: React.Reac
           })}
         </nav>
       </aside>
-      <section>{children}</section>
+      <section>
+        {bloqueado && (
+          <div className="mb-4 rounded-md border border-acento/30 bg-acento/10 px-4 py-3 font-sans text-sm text-institucional-900">
+            🔒 Este procedimiento ya generó documentos oficiales y quedó <strong>bloqueado para edición</strong>.
+            Los datos de los Bloques 1 a 6 ya no se pueden modificar — solo puedes descargar los
+            documentos existentes en el Bloque 7.
+          </div>
+        )}
+        {children}
+      </section>
     </div>
   );
 }

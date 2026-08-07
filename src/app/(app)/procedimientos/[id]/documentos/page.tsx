@@ -67,11 +67,11 @@ function Seccion({
 function BotonGenerar({
   cargando,
   onClick,
-  children,
+  children = "Generar y descargar",
 }: {
   cargando: boolean;
   onClick: () => void;
-  children: React.ReactNode;
+  children?: React.ReactNode;
 }) {
   return (
     <button
@@ -83,6 +83,36 @@ function BotonGenerar({
       {cargando ? "Generando…" : "Generar y descargar"}
     </button>
   );
+}
+
+function AccionDocumento({
+  generado,
+  cargando,
+  onGenerar,
+  onDescargar,
+}: {
+  generado?: { id: string };
+  cargando: boolean;
+  onGenerar: () => void;
+  onDescargar: (documentoId: string) => void;
+}) {
+  if (generado) {
+    return (
+      <div className="flex items-center gap-2">
+        <span className="rounded-full bg-institucional-100 px-2.5 py-1 font-sans text-xs font-medium text-institucional-800">
+          Ya generado
+        </span>
+        <button
+          type="button"
+          onClick={() => onDescargar(generado.id)}
+          className="rounded-md border border-institucional-100 px-3 py-1.5 font-sans text-xs text-institucional-800 transition-colors hover:bg-institucional-50"
+        >
+          Descargar
+        </button>
+      </div>
+    );
+  }
+  return <BotonGenerar cargando={cargando} onClick={onGenerar} />;
 }
 
 export default function BloqueDocumentos() {
@@ -225,6 +255,18 @@ export default function BloqueDocumentos() {
     setRespuestaFpj5("");
   }
 
+  function buscarGenerado(
+    tipoDocumento: string,
+    opciones: { capturadoId?: string; elementoId?: string } = {},
+  ) {
+    return generados.find(
+      (d) =>
+        d.tipoDocumento === tipoDocumento &&
+        (opciones.capturadoId === undefined || d.capturadoId === opciones.capturadoId) &&
+        (opciones.elementoId === undefined || d.elementoId === opciones.elementoId),
+    );
+  }
+
   if (cargando) return <p className="font-sans text-sm text-institucional-700">Cargando…</p>;
 
   const elementosConDueno = intervinientes.flatMap((p) =>
@@ -266,12 +308,12 @@ export default function BloqueDocumentos() {
               <span className="font-sans text-sm text-institucional-950">
                 {p.primerNombre} {p.primerApellido}
               </span>
-              <BotonGenerar
+              <AccionDocumento
+                generado={buscarGenerado("ACTA", { capturadoId: p.id })}
                 cargando={botonCargando === `ACTA-${p.id}`}
-                onClick={() => generarPorCapturado("acta-incautacion", "ACTA", p)}
-              >
-                Generar y descargar
-              </BotonGenerar>
+                onGenerar={() => generarPorCapturado("acta-incautacion", "ACTA", p)}
+                onDescargar={(docId) => descargar(docId, nombreArchivo("ACTA", `${p.primerNombre}_${p.primerApellido}`))}
+              />
             </div>
           ))
         )}
@@ -286,64 +328,75 @@ export default function BloqueDocumentos() {
               <span className="font-sans text-sm text-institucional-950">
                 {p.primerNombre} {p.primerApellido}
               </span>
-              <BotonGenerar
+              <AccionDocumento
+                generado={buscarGenerado("FPJ6", { capturadoId: p.id })}
                 cargando={botonCargando === `FPJ6-${p.id}`}
-                onClick={() => generarPorCapturado("fpj6-acta-derechos", "FPJ6", p)}
-              >
-                Generar y descargar
-              </BotonGenerar>
+                onGenerar={() => generarPorCapturado("fpj6-acta-derechos", "FPJ6", p)}
+                onDescargar={(docId) => descargar(docId, nombreArchivo("FPJ6", `${p.primerNombre}_${p.primerApellido}`))}
+              />
             </div>
           ))
         )}
       </Seccion>
 
       <Seccion titulo="FPJ-5 — Informe de Captura" descripcion="Uno solo por todo el procedimiento. La narración de los hechos se redacta automáticamente; si al sistema le falta información, te lo va a preguntar aquí mismo antes de generar el documento.">
-        {!generandoFpj5 && (
-          <button
-            type="button"
-            onClick={iniciarFpj5}
-            className="rounded-md bg-acento px-3 py-1.5 font-sans text-xs font-semibold text-white shadow-sm transition-colors hover:bg-acento-hover"
-          >
-            Generar y descargar
-          </button>
-        )}
-
-        {generandoFpj5 && !preguntaFpj5 && (
-          <p className="font-sans text-sm text-institucional-700">Generando…</p>
-        )}
-
-        {preguntaFpj5 && (
-          <div className="rounded-md bg-institucional-100 p-4">
-            <p className="font-sans text-sm font-medium text-institucional-950">
-              El sistema necesita una aclaración antes de generar el FPJ-5:
-            </p>
-            <p className="mt-1 font-sans text-sm text-institucional-800">{preguntaFpj5}</p>
-            <textarea
-              rows={3}
-              autoFocus
-              className="mt-3 block w-full rounded-md border border-institucional-100 bg-white px-3 py-2 font-sans text-sm text-institucional-950 outline-none focus:border-acento"
-              value={respuestaFpj5}
-              onChange={(e) => setRespuestaFpj5(e.target.value)}
-              placeholder="Responde aquí para continuar…"
-            />
-            <div className="mt-2 flex gap-2">
+        {buscarGenerado("FPJ5") ? (
+          <AccionDocumento
+            generado={buscarGenerado("FPJ5")}
+            cargando={false}
+            onGenerar={() => {}}
+            onDescargar={(docId) => descargar(docId, nombreArchivo("FPJ5"))}
+          />
+        ) : (
+          <>
+            {!generandoFpj5 && (
               <button
                 type="button"
-                onClick={enviarAclaracionFpj5}
-                disabled={!respuestaFpj5.trim()}
-                className="rounded-md bg-acento px-3 py-1.5 font-sans text-xs font-semibold text-white shadow-sm transition-colors hover:bg-acento-hover disabled:cursor-not-allowed disabled:opacity-60"
+                onClick={iniciarFpj5}
+                className="rounded-md bg-acento px-3 py-1.5 font-sans text-xs font-semibold text-white shadow-sm transition-colors hover:bg-acento-hover"
               >
-                Enviar y continuar
+                Generar y descargar
               </button>
-              <button
-                type="button"
-                onClick={cancelarFpj5}
-                className="rounded-md border border-institucional-100 px-3 py-1.5 font-sans text-xs text-institucional-800 transition-colors hover:bg-institucional-50"
-              >
-                Cancelar
-              </button>
-            </div>
-          </div>
+            )}
+
+            {generandoFpj5 && !preguntaFpj5 && (
+              <p className="font-sans text-sm text-institucional-700">Generando…</p>
+            )}
+
+            {preguntaFpj5 && (
+              <div className="rounded-md bg-institucional-100 p-4">
+                <p className="font-sans text-sm font-medium text-institucional-950">
+                  El sistema necesita una aclaración antes de generar el FPJ-5:
+                </p>
+                <p className="mt-1 font-sans text-sm text-institucional-800">{preguntaFpj5}</p>
+                <textarea
+                  rows={3}
+                  autoFocus
+                  className="mt-3 block w-full rounded-md border border-institucional-100 bg-white px-3 py-2 font-sans text-sm text-institucional-950 outline-none focus:border-acento"
+                  value={respuestaFpj5}
+                  onChange={(e) => setRespuestaFpj5(e.target.value)}
+                  placeholder="Responde aquí para continuar…"
+                />
+                <div className="mt-2 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={enviarAclaracionFpj5}
+                    disabled={!respuestaFpj5.trim()}
+                    className="rounded-md bg-acento px-3 py-1.5 font-sans text-xs font-semibold text-white shadow-sm transition-colors hover:bg-acento-hover disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    Enviar y continuar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={cancelarFpj5}
+                    className="rounded-md border border-institucional-100 px-3 py-1.5 font-sans text-xs text-institucional-800 transition-colors hover:bg-institucional-50"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </Seccion>
 
@@ -357,14 +410,16 @@ export default function BloqueDocumentos() {
                 {ETIQUETA_TIPO_ELEMENTO[elemento.tipoElemento]} — {elemento.descripcionBase}
                 <span className="text-institucional-700"> ({persona.primerNombre} {persona.primerApellido})</span>
               </span>
-              <BotonGenerar
+              <AccionDocumento
+                generado={buscarGenerado("FPJ7", { elementoId: elemento.id })}
                 cargando={botonCargando === `FPJ7-${elemento.id}`}
-                onClick={() =>
+                onGenerar={() =>
                   generarPorElemento("fpj7-rotulo", "FPJ7", elemento, `${persona.primerNombre}_${persona.primerApellido}`)
                 }
-              >
-                Generar y descargar
-              </BotonGenerar>
+                onDescargar={(docId) =>
+                  descargar(docId, nombreArchivo("FPJ7", `${persona.primerNombre}_${elemento.descripcionBase}`))
+                }
+              />
             </div>
           ))
         )}
@@ -380,14 +435,16 @@ export default function BloqueDocumentos() {
                 {ETIQUETA_TIPO_ELEMENTO[elemento.tipoElemento]} — {elemento.descripcionBase}
                 <span className="text-institucional-700"> ({persona.primerNombre} {persona.primerApellido})</span>
               </span>
-              <BotonGenerar
+              <AccionDocumento
+                generado={buscarGenerado("FPJ8", { elementoId: elemento.id })}
                 cargando={botonCargando === `FPJ8-${elemento.id}`}
-                onClick={() =>
+                onGenerar={() =>
                   generarPorElemento("fpj8-cadena-custodia", "FPJ8", elemento, `${persona.primerNombre}_${persona.primerApellido}`)
                 }
-              >
-                Generar y descargar
-              </BotonGenerar>
+                onDescargar={(docId) =>
+                  descargar(docId, nombreArchivo("FPJ8", `${persona.primerNombre}_${elemento.descripcionBase}`))
+                }
+              />
             </div>
           ))
         )}
