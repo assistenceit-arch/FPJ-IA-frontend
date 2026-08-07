@@ -30,18 +30,27 @@ interface ProcedimientoAdmin {
   estado: string;
   exoneradoPago: boolean;
   fechaCreacion: string;
-  usuario: { nombres: string; apellidos: string; correo: string };
+  usuario: { nombres: string; apellidos: string | null; correo: string };
   pago: { estadoPago: string } | null;
 }
 
 interface UsuarioAdmin {
   id: string;
   nombres: string;
-  apellidos: string;
-  identificacion: string;
+  apellidos: string | null;
+  identificacion: string | null;
   correo: string;
+  telefono: string | null;
   rol: "FUNCIONARIO" | "ADMINISTRADOR";
   activo: boolean;
+  correoVerificado: boolean;
+}
+
+interface Paginado<T> {
+  datos: T[];
+  total: number;
+  pagina: number;
+  totalPaginas: number;
 }
 
 const claseInput =
@@ -77,6 +86,41 @@ function Seccion({
   );
 }
 
+function Paginador({
+  pagina,
+  totalPaginas,
+  onCambiar,
+}: {
+  pagina: number;
+  totalPaginas: number;
+  onCambiar: (pagina: number) => void;
+}) {
+  if (totalPaginas <= 1) return null;
+  return (
+    <div className="flex items-center justify-between border-t border-institucional-100 pt-3">
+      <button
+        type="button"
+        onClick={() => onCambiar(pagina - 1)}
+        disabled={pagina <= 1}
+        className="rounded-md border border-institucional-100 px-3 py-1.5 font-sans text-xs text-institucional-800 transition-colors hover:bg-institucional-50 disabled:cursor-not-allowed disabled:opacity-40"
+      >
+        ← Anterior
+      </button>
+      <span className="font-sans text-xs text-institucional-700">
+        Página {pagina} de {totalPaginas}
+      </span>
+      <button
+        type="button"
+        onClick={() => onCambiar(pagina + 1)}
+        disabled={pagina >= totalPaginas}
+        className="rounded-md border border-institucional-100 px-3 py-1.5 font-sans text-xs text-institucional-800 transition-colors hover:bg-institucional-50 disabled:cursor-not-allowed disabled:opacity-40"
+      >
+        Siguiente →
+      </button>
+    </div>
+  );
+}
+
 function formatearValor(valor: string | number): string {
   const numero = typeof valor === "string" ? Number(valor) : valor;
   if (Number.isNaN(numero)) return String(valor);
@@ -102,12 +146,17 @@ export default function PanelAdministracion() {
   // Procedimientos / exoneración
   const [busqueda, setBusqueda] = useState("");
   const [procedimientos, setProcedimientos] = useState<ProcedimientoAdmin[]>([]);
+  const [paginaProcedimientos, setPaginaProcedimientos] = useState(1);
+  const [totalPaginasProcedimientos, setTotalPaginasProcedimientos] = useState(1);
   const [buscando, setBuscando] = useState(false);
   const [exonerando, setExonerando] = useState<string | null>(null);
 
-  // Usuarios / roles
+  // Usuarios / roles / bloqueo
   const [usuarios, setUsuarios] = useState<UsuarioAdmin[]>([]);
+  const [paginaUsuarios, setPaginaUsuarios] = useState(1);
+  const [totalPaginasUsuarios, setTotalPaginasUsuarios] = useState(1);
   const [cambiandoRol, setCambiandoRol] = useState<string | null>(null);
+  const [cambiandoEstado, setCambiandoEstado] = useState<string | null>(null);
 
   // Crear usuario
   const [nuevoNombres, setNuevoNombres] = useState("");
@@ -148,23 +197,28 @@ export default function PanelAdministracion() {
     }
   }
 
-  async function cargarUsuarios() {
+  async function cargarUsuarios(pagina = paginaUsuarios) {
     try {
-      const lista = await api.get<UsuarioAdmin[]>("/admin/usuarios");
-      setUsuarios(lista);
+      const respuesta = await api.get<Paginado<UsuarioAdmin>>(`/admin/usuarios?pagina=${pagina}`);
+      setUsuarios(respuesta.datos);
+      setPaginaUsuarios(respuesta.pagina);
+      setTotalPaginasUsuarios(respuesta.totalPaginas);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "No fue posible cargar los usuarios.");
     }
   }
 
-  async function buscarProcedimientos(evento?: FormEvent) {
+  async function buscarProcedimientos(evento?: FormEvent, pagina = 1) {
     evento?.preventDefault();
     setBuscando(true);
     setError(null);
     try {
-      const query = busqueda.trim() ? `?busqueda=${encodeURIComponent(busqueda.trim())}` : "";
-      const lista = await api.get<ProcedimientoAdmin[]>(`/admin/procedimientos${query}`);
-      setProcedimientos(lista);
+      const parametros = new URLSearchParams({ pagina: String(pagina) });
+      if (busqueda.trim()) parametros.set("busqueda", busqueda.trim());
+      const respuesta = await api.get<Paginado<ProcedimientoAdmin>>(`/admin/procedimientos?${parametros}`);
+      setProcedimientos(respuesta.datos);
+      setPaginaProcedimientos(respuesta.pagina);
+      setTotalPaginasProcedimientos(respuesta.totalPaginas);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "No fue posible buscar procedimientos.");
     } finally {
@@ -229,7 +283,7 @@ export default function PanelAdministracion() {
       await api.patch(`/admin/procedimientos/${procedimiento.id}/exoneracion`, {
         exonerado: !procedimiento.exoneradoPago,
       });
-      await buscarProcedimientos();
+      await buscarProcedimientos(undefined, paginaProcedimientos);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "No fue posible actualizar la exoneración.");
     } finally {
@@ -248,6 +302,19 @@ export default function PanelAdministracion() {
       setError(err instanceof ApiError ? err.message : "No fue posible cambiar el rol.");
     } finally {
       setCambiandoRol(null);
+    }
+  }
+
+  async function cambiarEstadoUsuario(usuario: UsuarioAdmin) {
+    setError(null);
+    setCambiandoEstado(usuario.id);
+    try {
+      await api.patch(`/admin/usuarios/${usuario.id}/estado`, { activo: !usuario.activo });
+      await cargarUsuarios();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "No fue posible cambiar el estado del usuario.");
+    } finally {
+      setCambiandoEstado(null);
     }
   }
 
@@ -303,6 +370,12 @@ export default function PanelAdministracion() {
   return (
     <div className="space-y-6">
       <div>
+        <button
+          onClick={() => router.push("/procedimientos")}
+          className="mb-3 font-sans text-sm text-institucional-700 hover:underline"
+        >
+          ← Volver a mis procedimientos
+        </button>
         <h1 className="font-display text-2xl text-institucional-950">Panel de administración</h1>
         <p className="mt-1 font-sans text-sm text-institucional-700">
           Configuración de pagos, verificación centralizada, exoneraciones y gestión de usuarios.
@@ -405,7 +478,7 @@ export default function PanelAdministracion() {
 
       {/* ── Procedimientos / exoneración ── */}
       <Seccion titulo="Exonerar procedimientos del pago" descripcion="Permite generar documentos sin pago verificado para un procedimiento puntual.">
-        <form onSubmit={buscarProcedimientos} className="flex gap-2">
+        <form onSubmit={(e) => buscarProcedimientos(e, 1)} className="flex gap-2">
           <input
             className={claseInput}
             placeholder="Buscar por número interno (ej. EST-2026-000003)…"
@@ -461,31 +534,66 @@ export default function PanelAdministracion() {
             ))}
           </div>
         )}
+        <Paginador
+          pagina={paginaProcedimientos}
+          totalPaginas={totalPaginasProcedimientos}
+          onCambiar={(pagina) => buscarProcedimientos(undefined, pagina)}
+        />
       </Seccion>
-
-      {/* ── Usuarios / roles ── */}
-      <Seccion titulo="Usuarios y roles">
+      <Seccion titulo="Usuarios y roles" descripcion="Cambia el rol o bloquea el acceso de un usuario (por ejemplo, ante un uso irregular de la aplicación).">
         <div className="space-y-2">
           {usuarios.map((u) => (
             <div key={u.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-institucional-100 p-3">
               <div>
                 <p className="font-sans text-sm font-medium text-institucional-950">
                   {u.nombres} {u.apellidos}
+                  {!u.activo && (
+                    <span className="ml-2 rounded-full bg-estado-error/15 px-2 py-0.5 text-xs font-semibold text-estado-error">
+                      Bloqueado
+                    </span>
+                  )}
+                  {!u.correoVerificado && (
+                    <span className="ml-2 rounded-full bg-estado-pendiente/15 px-2 py-0.5 text-xs font-semibold text-estado-pendiente">
+                      Correo sin verificar
+                    </span>
+                  )}
                 </p>
-                <p className="font-sans text-xs text-institucional-700">{u.correo}</p>
+                <p className="font-sans text-xs text-institucional-700">
+                  {u.correo}
+                  {u.telefono && ` · ${u.telefono}`}
+                </p>
               </div>
-              <select
-                value={u.rol}
-                disabled={cambiandoRol === u.id}
-                onChange={(e) => cambiarRol(u, e.target.value as "FUNCIONARIO" | "ADMINISTRADOR")}
-                className="rounded-md border border-institucional-100 bg-white px-3 py-1.5 font-sans text-xs text-institucional-950 outline-none focus:border-acento disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                <option value="FUNCIONARIO">Funcionario</option>
-                <option value="ADMINISTRADOR">Administrador</option>
-              </select>
+              <div className="flex items-center gap-2">
+                <select
+                  value={u.rol}
+                  disabled={cambiandoRol === u.id}
+                  onChange={(e) => cambiarRol(u, e.target.value as "FUNCIONARIO" | "ADMINISTRADOR")}
+                  className="rounded-md border border-institucional-100 bg-white px-3 py-1.5 font-sans text-xs text-institucional-950 outline-none focus:border-acento disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <option value="FUNCIONARIO">Funcionario</option>
+                  <option value="ADMINISTRADOR">Administrador</option>
+                </select>
+                <button
+                  type="button"
+                  onClick={() => cambiarEstadoUsuario(u)}
+                  disabled={cambiandoEstado === u.id}
+                  className={`rounded-md px-3 py-1.5 font-sans text-xs font-semibold shadow-sm transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+                    u.activo
+                      ? "border border-estado-error text-estado-error hover:bg-estado-error/10"
+                      : "bg-estado-completo text-white hover:opacity-90"
+                  }`}
+                >
+                  {cambiandoEstado === u.id ? "Guardando…" : u.activo ? "Bloquear" : "Desbloquear"}
+                </button>
+              </div>
             </div>
           ))}
         </div>
+        <Paginador
+          pagina={paginaUsuarios}
+          totalPaginas={totalPaginasUsuarios}
+          onCambiar={(pagina) => cargarUsuarios(pagina)}
+        />
       </Seccion>
 
       {/* ── Crear usuario ── */}

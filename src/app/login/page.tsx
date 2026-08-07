@@ -2,6 +2,7 @@
 
 import { useState, FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { api, ApiError } from "@/lib/api";
 import { guardarToken } from "@/lib/auth";
 
@@ -132,6 +133,13 @@ export default function PaginaLogin() {
             >
               {cargando ? "Ingresando…" : "Ingresar"}
             </button>
+
+            <p className="text-center font-sans text-sm text-institucional-700">
+              ¿No tienes cuenta?{" "}
+              <Link href="/registro" className="font-medium text-acento hover:underline">
+                Crear cuenta
+              </Link>
+            </p>
           </form>
         </div>
       </div>
