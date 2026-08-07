@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, FormEvent } from "react";
+import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { api, ApiError } from "@/lib/api";
 import { payloadToken } from "@/lib/auth";
@@ -9,10 +9,7 @@ import { descargarArchivo } from "@/lib/descargarArchivo";
 interface Pago {
   id: string;
   procedimientoId: string;
-  fechaPago: string;
   valor: string | number;
-  medioPago: string;
-  referenciaPago: string;
   comprobantePago: string | null;
   estadoPago: "Pendiente" | "Verificado" | "Rechazado";
   createdAt: string;
@@ -71,9 +68,6 @@ export default function BloquePago() {
   const [error, setError] = useState<string | null>(null);
   const [esAdministrador, setEsAdministrador] = useState(false);
 
-  const [fechaPago, setFechaPago] = useState("");
-  const [medioPago, setMedioPago] = useState("");
-  const [referenciaPago, setReferenciaPago] = useState("");
   const [comprobante, setComprobante] = useState<File | null>(null);
   const [registrando, setRegistrando] = useState(false);
 
@@ -102,8 +96,7 @@ export default function BloquePago() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  async function registrar(evento: FormEvent) {
-    evento.preventDefault();
+  async function registrar() {
     setError(null);
 
     if (!comprobante) {
@@ -114,15 +107,9 @@ export default function BloquePago() {
     setRegistrando(true);
     try {
       const formData = new FormData();
-      formData.append("fechaPago", `${fechaPago}T00:00:00.000Z`);
-      formData.append("medioPago", medioPago);
-      formData.append("referenciaPago", referenciaPago);
       formData.append("comprobante", comprobante);
 
       await api.postFormData(`/procedimientos/${id}/pago`, formData);
-      setFechaPago("");
-      setMedioPago("");
-      setReferenciaPago("");
       setComprobante(null);
       await cargar();
     } catch (err) {
@@ -166,7 +153,8 @@ export default function BloquePago() {
         <h1 className="font-display text-2xl text-institucional-950">8. Pago</h1>
         <p className="mt-1 font-sans text-sm text-institucional-700">
           El pago debe quedar <strong>Verificado</strong> por un administrador antes de poder generar
-          documentos en el Bloque 7.
+          documentos en el Bloque 7 (salvo que el procedimiento esté exonerado desde el panel de
+          administración).
         </p>
       </div>
 
@@ -175,60 +163,33 @@ export default function BloquePago() {
       )}
 
       {necesitaRegistrar && (
-        <Seccion titulo={pago?.estadoPago === "Rechazado" ? "Registrar un nuevo pago" : "Registrar pago"}>
+        <Seccion titulo={pago?.estadoPago === "Rechazado" ? "Adjuntar un nuevo comprobante" : "Adjuntar comprobante de pago"}>
           {pago?.estadoPago === "Rechazado" && (
             <p className="rounded-md bg-estado-error/10 px-3 py-2.5 font-sans text-sm text-estado-error">
-              El pago anterior fue rechazado. Verifica la información y registra uno nuevo.
+              El comprobante anterior fue rechazado. Adjunta uno nuevo.
             </p>
           )}
-          <form onSubmit={registrar} className="space-y-4">
-            <Campo etiqueta="Fecha del pago" requerido>
-              <input
-                required
-                type="date"
-                className={claseInput}
-                value={fechaPago}
-                onChange={(e) => setFechaPago(e.target.value)}
-              />
-            </Campo>
-            <Campo etiqueta="Medio de pago" requerido>
-              <input
-                required
-                className={claseInput}
-                placeholder="Ej. Transferencia Bancolombia, Nequi, consignación…"
-                value={medioPago}
-                onChange={(e) => setMedioPago(e.target.value)}
-              />
-            </Campo>
-            <Campo etiqueta="Referencia / número de comprobante" requerido>
-              <input
-                required
-                className={claseInput}
-                value={referenciaPago}
-                onChange={(e) => setReferenciaPago(e.target.value)}
-              />
-            </Campo>
-            <Campo etiqueta="Comprobante de la transferencia (imagen o PDF)" requerido>
-              <input
-                required
-                type="file"
-                accept={TIPOS_ACEPTADOS}
-                className={claseInput}
-                onChange={(e) => setComprobante(e.target.files?.[0] ?? null)}
-              />
-              <p className="mt-1 font-sans text-xs text-institucional-700">
-                Debe verse claramente la fecha, el número de referencia y el valor del movimiento. JPG,
-                PNG, WEBP o PDF — máximo 10 MB.
-              </p>
-            </Campo>
-            <button
-              type="submit"
-              disabled={registrando}
-              className="rounded-md bg-acento px-4 py-2 font-sans text-sm font-semibold text-white shadow-sm transition-colors hover:bg-acento-hover disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {registrando ? "Registrando…" : "Registrar pago"}
-            </button>
-          </form>
+          <Campo etiqueta="Comprobante de la transferencia (imagen o PDF)" requerido>
+            <input
+              type="file"
+              accept={TIPOS_ACEPTADOS}
+              className={claseInput}
+              onChange={(e) => setComprobante(e.target.files?.[0] ?? null)}
+            />
+            <p className="mt-1 font-sans text-xs text-institucional-700">
+              Debe verse claramente la fecha, el número de referencia y el valor del movimiento — el
+              administrador revisa esos datos directamente en el archivo. JPG, PNG, WEBP o PDF —
+              máximo 10 MB.
+            </p>
+          </Campo>
+          <button
+            type="button"
+            onClick={registrar}
+            disabled={registrando || !comprobante}
+            className="rounded-md bg-acento px-4 py-2 font-sans text-sm font-semibold text-white shadow-sm transition-colors hover:bg-acento-hover disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {registrando ? "Subiendo…" : "Adjuntar comprobante"}
+          </button>
         </Seccion>
       )}
 
@@ -237,22 +198,14 @@ export default function BloquePago() {
           <BadgeEstado estado={pago.estadoPago} />
           <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
-              <dt className="font-sans text-xs text-institucional-700">Fecha del pago</dt>
-              <dd className="font-sans text-sm text-institucional-950">
-                {new Date(pago.fechaPago).toLocaleDateString("es-CO")}
-              </dd>
-            </div>
-            <div>
               <dt className="font-sans text-xs text-institucional-700">Valor</dt>
               <dd className="font-sans text-sm text-institucional-950">{formatearValor(pago.valor)}</dd>
             </div>
             <div>
-              <dt className="font-sans text-xs text-institucional-700">Medio de pago</dt>
-              <dd className="font-sans text-sm text-institucional-950">{pago.medioPago}</dd>
-            </div>
-            <div>
-              <dt className="font-sans text-xs text-institucional-700">Referencia</dt>
-              <dd className="font-sans text-sm text-institucional-950">{pago.referenciaPago}</dd>
+              <dt className="font-sans text-xs text-institucional-700">Registrado el</dt>
+              <dd className="font-sans text-sm text-institucional-950">
+                {new Date(pago.createdAt).toLocaleString("es-CO")}
+              </dd>
             </div>
             {pago.comprobantePago && (
               <div className="sm:col-span-2">
@@ -307,7 +260,7 @@ export default function BloquePago() {
 
       {pago && pago.estadoPago === "Pendiente" && !esAdministrador && (
         <p className="rounded-md bg-institucional-100 px-3 py-2.5 font-sans text-xs text-institucional-800">
-          El pago está registrado y pendiente de verificación por un administrador.
+          El comprobante está registrado y pendiente de verificación por un administrador.
         </p>
       )}
     </div>
