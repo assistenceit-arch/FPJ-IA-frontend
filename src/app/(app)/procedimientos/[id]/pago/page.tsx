@@ -16,6 +16,17 @@ interface Pago {
   updatedAt: string;
 }
 
+interface ConfiguracionPagos {
+  nequiHabilitado: boolean;
+  nequiNumero: string | null;
+  cuentaHabilitada: boolean;
+  cuentaBanco: string | null;
+  cuentaTipo: string | null;
+  cuentaNumero: string | null;
+  tarjetaHabilitada: boolean;
+  tarjetaInstrucciones: string | null;
+}
+
 const claseInput =
   "block w-full rounded-md border border-institucional-100 bg-white px-3 py-2 font-sans text-sm text-institucional-950 outline-none focus:border-acento";
 
@@ -64,6 +75,7 @@ function formatearValor(valor: string | number): string {
 export default function BloquePago() {
   const { id } = useParams<{ id: string }>();
   const [pago, setPago] = useState<Pago | null>(null);
+  const [configuracion, setConfiguracion] = useState<ConfiguracionPagos | null>(null);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [esAdministrador, setEsAdministrador] = useState(false);
@@ -81,8 +93,12 @@ export default function BloquePago() {
 
   async function cargar() {
     try {
-      const p = await api.get<Pago | null>(`/procedimientos/${id}/pago`);
+      const [p, config] = await Promise.all([
+        api.get<Pago | null>(`/procedimientos/${id}/pago`),
+        api.get<ConfiguracionPagos | null>(`/configuracion-pagos`).catch(() => null),
+      ]);
       setPago(p);
+      setConfiguracion(config);
       setError(null);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "No fue posible cargar el estado del pago.");
@@ -160,6 +176,57 @@ export default function BloquePago() {
 
       {error && (
         <p className="rounded-md bg-estado-error/10 px-3 py-2.5 font-sans text-sm text-estado-error">{error}</p>
+      )}
+
+      {necesitaRegistrar && (
+        <Seccion titulo="¿Cómo pagar?">
+          <p className="font-sans text-sm text-institucional-900">
+            Por favor realizar el pago para la generación y descarga de los documentos del
+            procedimiento utilizando cualquiera de los siguientes métodos:
+          </p>
+
+          <div className="space-y-2">
+            {configuracion?.nequiHabilitado && (
+              <div className="rounded-md border border-institucional-100 p-3">
+                <p className="font-sans text-sm font-medium text-institucional-950">Nequi</p>
+                <p className="font-sans text-sm text-institucional-800">{configuracion.nequiNumero}</p>
+              </div>
+            )}
+            {configuracion?.cuentaHabilitada && (
+              <div className="rounded-md border border-institucional-100 p-3">
+                <p className="font-sans text-sm font-medium text-institucional-950">
+                  Cuenta {configuracion.cuentaTipo ?? "Ahorros"} — {configuracion.cuentaBanco}
+                </p>
+                <p className="font-sans text-sm text-institucional-800">{configuracion.cuentaNumero}</p>
+              </div>
+            )}
+            {configuracion?.tarjetaHabilitada && (
+              <div className="rounded-md border border-institucional-100 p-3">
+                <p className="font-sans text-sm font-medium text-institucional-950">
+                  Tarjeta débito o crédito
+                </p>
+                {configuracion.tarjetaInstrucciones && (
+                  <p className="font-sans text-sm text-institucional-800">
+                    {configuracion.tarjetaInstrucciones}
+                  </p>
+                )}
+              </div>
+            )}
+            {configuracion &&
+              !configuracion.nequiHabilitado &&
+              !configuracion.cuentaHabilitada &&
+              !configuracion.tarjetaHabilitada && (
+                <p className="font-sans text-sm text-institucional-700">
+                  Aún no hay métodos de pago configurados. Consulta con un administrador.
+                </p>
+              )}
+          </div>
+
+          <p className="font-sans text-sm text-institucional-900">
+            Si ya realizó el pago, por favor adjunte el comprobante y en breve un administrador
+            verificará y, de ser correcto, aprobará la generación de los documentos.
+          </p>
+        </Seccion>
       )}
 
       {necesitaRegistrar && (

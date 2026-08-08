@@ -9,6 +9,14 @@ import { descargarArchivo } from "@/lib/descargarArchivo";
 interface ConfiguracionPagos {
   valorEstandar: string | number;
   valorComplejo: string | number;
+  nequiHabilitado: boolean;
+  nequiNumero: string | null;
+  cuentaHabilitada: boolean;
+  cuentaBanco: string | null;
+  cuentaTipo: string | null;
+  cuentaNumero: string | null;
+  tarjetaHabilitada: boolean;
+  tarjetaInstrucciones: string | null;
 }
 
 interface PagoPendiente {
@@ -136,6 +144,14 @@ export default function PanelAdministracion() {
   // Configuración de valores
   const [valorEstandar, setValorEstandar] = useState("");
   const [valorComplejo, setValorComplejo] = useState("");
+  const [nequiHabilitado, setNequiHabilitado] = useState(false);
+  const [nequiNumero, setNequiNumero] = useState("");
+  const [cuentaHabilitada, setCuentaHabilitada] = useState(false);
+  const [cuentaBanco, setCuentaBanco] = useState("");
+  const [cuentaTipo, setCuentaTipo] = useState("Ahorros");
+  const [cuentaNumero, setCuentaNumero] = useState("");
+  const [tarjetaHabilitada, setTarjetaHabilitada] = useState(false);
+  const [tarjetaInstrucciones, setTarjetaInstrucciones] = useState("");
   const [guardandoConfig, setGuardandoConfig] = useState(false);
 
   // Pagos pendientes
@@ -182,6 +198,14 @@ export default function PanelAdministracion() {
       if (config) {
         setValorEstandar(String(config.valorEstandar));
         setValorComplejo(String(config.valorComplejo));
+        setNequiHabilitado(config.nequiHabilitado);
+        setNequiNumero(config.nequiNumero ?? "");
+        setCuentaHabilitada(config.cuentaHabilitada);
+        setCuentaBanco(config.cuentaBanco ?? "");
+        setCuentaTipo(config.cuentaTipo ?? "Ahorros");
+        setCuentaNumero(config.cuentaNumero ?? "");
+        setTarjetaHabilitada(config.tarjetaHabilitada);
+        setTarjetaInstrucciones(config.tarjetaInstrucciones ?? "");
       }
     } catch {
       // sin configuración todavía — se deja en blanco, el admin la crea
@@ -244,6 +268,14 @@ export default function PanelAdministracion() {
       await api.put("/configuracion-pagos", {
         valorEstandar: Number(valorEstandar),
         valorComplejo: Number(valorComplejo),
+        nequiHabilitado,
+        nequiNumero: nequiNumero.trim() || undefined,
+        cuentaHabilitada,
+        cuentaBanco: cuentaBanco.trim() || undefined,
+        cuentaTipo: cuentaTipo.trim() || undefined,
+        cuentaNumero: cuentaNumero.trim() || undefined,
+        tarjetaHabilitada,
+        tarjetaInstrucciones: tarjetaInstrucciones.trim() || undefined,
       });
       setMensaje("Valores de pago actualizados.");
     } catch (err) {
@@ -414,6 +446,124 @@ export default function PanelAdministracion() {
               onChange={(e) => setValorComplejo(e.target.value)}
             />
           </Campo>
+
+          <div className="sm:col-span-2 border-t border-institucional-100 pt-4">
+            <h3 className="font-display text-base text-institucional-950">Métodos de pago</h3>
+            <p className="mt-1 font-sans text-xs text-institucional-700">
+              Habilita cada método con el interruptor y edita sus datos. Solo los habilitados se
+              muestran al funcionario en el Bloque 8.
+            </p>
+          </div>
+
+          {/* Nequi */}
+          <div className="sm:col-span-2 rounded-md border border-institucional-100 p-4">
+            <div className="flex items-center justify-between">
+              <span className="font-sans text-sm font-medium text-institucional-950">Nequi</span>
+              <button
+                type="button"
+                onClick={() => setNequiHabilitado((v) => !v)}
+                className={`rounded-full px-3 py-1 font-sans text-xs font-semibold transition-colors ${
+                  nequiHabilitado
+                    ? "bg-estado-completo text-white"
+                    : "bg-institucional-100 text-institucional-700"
+                }`}
+              >
+                {nequiHabilitado ? "Habilitado" : "Deshabilitado"}
+              </button>
+            </div>
+            {nequiHabilitado && (
+              <div className="mt-3">
+                <Campo etiqueta="Número">
+                  <input
+                    className={claseInput}
+                    placeholder="300 000 0000"
+                    value={nequiNumero}
+                    onChange={(e) => setNequiNumero(e.target.value)}
+                  />
+                </Campo>
+              </div>
+            )}
+          </div>
+
+          {/* Cuenta bancaria */}
+          <div className="sm:col-span-2 rounded-md border border-institucional-100 p-4">
+            <div className="flex items-center justify-between">
+              <span className="font-sans text-sm font-medium text-institucional-950">Cuenta bancaria</span>
+              <button
+                type="button"
+                onClick={() => setCuentaHabilitada((v) => !v)}
+                className={`rounded-full px-3 py-1 font-sans text-xs font-semibold transition-colors ${
+                  cuentaHabilitada
+                    ? "bg-estado-completo text-white"
+                    : "bg-institucional-100 text-institucional-700"
+                }`}
+              >
+                {cuentaHabilitada ? "Habilitado" : "Deshabilitado"}
+              </button>
+            </div>
+            {cuentaHabilitada && (
+              <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <Campo etiqueta="Banco">
+                  <input
+                    className={claseInput}
+                    placeholder="Bancolombia"
+                    value={cuentaBanco}
+                    onChange={(e) => setCuentaBanco(e.target.value)}
+                  />
+                </Campo>
+                <Campo etiqueta="Tipo de cuenta">
+                  <select
+                    className={claseInput}
+                    value={cuentaTipo}
+                    onChange={(e) => setCuentaTipo(e.target.value)}
+                  >
+                    <option value="Ahorros">Ahorros</option>
+                    <option value="Corriente">Corriente</option>
+                  </select>
+                </Campo>
+                <Campo etiqueta="Número de cuenta">
+                  <input
+                    className={claseInput}
+                    value={cuentaNumero}
+                    onChange={(e) => setCuentaNumero(e.target.value)}
+                  />
+                </Campo>
+              </div>
+            )}
+          </div>
+
+          {/* Tarjeta débito/crédito */}
+          <div className="sm:col-span-2 rounded-md border border-institucional-100 p-4">
+            <div className="flex items-center justify-between">
+              <span className="font-sans text-sm font-medium text-institucional-950">
+                Tarjeta débito o crédito
+              </span>
+              <button
+                type="button"
+                onClick={() => setTarjetaHabilitada((v) => !v)}
+                className={`rounded-full px-3 py-1 font-sans text-xs font-semibold transition-colors ${
+                  tarjetaHabilitada
+                    ? "bg-estado-completo text-white"
+                    : "bg-institucional-100 text-institucional-700"
+                }`}
+              >
+                {tarjetaHabilitada ? "Habilitado" : "Deshabilitado"}
+              </button>
+            </div>
+            {tarjetaHabilitada && (
+              <div className="mt-3">
+                <Campo etiqueta="Instrucciones (opcional)">
+                  <textarea
+                    rows={2}
+                    className={claseInput}
+                    placeholder="Ej. enlace de pago, o indicaciones para pagar con tarjeta en la estación…"
+                    value={tarjetaInstrucciones}
+                    onChange={(e) => setTarjetaInstrucciones(e.target.value)}
+                  />
+                </Campo>
+              </div>
+            )}
+          </div>
           <div className="sm:col-span-2">
             <button
               type="submit"
