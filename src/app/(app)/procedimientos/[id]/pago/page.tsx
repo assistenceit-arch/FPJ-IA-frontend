@@ -17,6 +17,8 @@ interface Pago {
 }
 
 interface ConfiguracionPagos {
+  valorEstandar: string | number;
+  valorComplejo: string | number;
   nequiHabilitado: boolean;
   nequiNumero: string | null;
   cuentaHabilitada: boolean;
@@ -25,6 +27,10 @@ interface ConfiguracionPagos {
   cuentaNumero: string | null;
   tarjetaHabilitada: boolean;
   tarjetaInstrucciones: string | null;
+}
+
+interface ProcedimientoResumen {
+  tipoProcedimiento: "ESTANDAR" | "COMPLEJO";
 }
 
 const claseInput =
@@ -76,6 +82,7 @@ export default function BloquePago() {
   const { id } = useParams<{ id: string }>();
   const [pago, setPago] = useState<Pago | null>(null);
   const [configuracion, setConfiguracion] = useState<ConfiguracionPagos | null>(null);
+  const [procedimiento, setProcedimiento] = useState<ProcedimientoResumen | null>(null);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [esAdministrador, setEsAdministrador] = useState(false);
@@ -93,12 +100,14 @@ export default function BloquePago() {
 
   async function cargar() {
     try {
-      const [p, config] = await Promise.all([
+      const [p, config, proc] = await Promise.all([
         api.get<Pago | null>(`/procedimientos/${id}/pago`),
         api.get<ConfiguracionPagos | null>(`/configuracion-pagos`).catch(() => null),
+        api.get<ProcedimientoResumen>(`/procedimientos/${id}`).catch(() => null),
       ]);
       setPago(p);
       setConfiguracion(config);
+      setProcedimiento(proc);
       setError(null);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "No fue posible cargar el estado del pago.");
@@ -176,6 +185,54 @@ export default function BloquePago() {
 
       {error && (
         <p className="rounded-md bg-estado-error/10 px-3 py-2.5 font-sans text-sm text-estado-error">{error}</p>
+      )}
+
+      {necesitaRegistrar && configuracion && (
+        <Seccion titulo="Valor a pagar">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div
+              className={`rounded-md border p-4 text-center transition-opacity ${
+                procedimiento?.tipoProcedimiento === "ESTANDAR"
+                  ? "border-acento bg-acento/10"
+                  : "border-institucional-100 opacity-40"
+              }`}
+            >
+              <p className="font-sans text-xs font-medium uppercase tracking-wide text-institucional-700">
+                Procedimiento estándar
+              </p>
+              <p
+                className={`mt-1 font-display text-2xl ${
+                  procedimiento?.tipoProcedimiento === "ESTANDAR" ? "text-acento" : "text-institucional-700"
+                }`}
+              >
+                {formatearValor(configuracion.valorEstandar)}
+              </p>
+            </div>
+            <div
+              className={`rounded-md border p-4 text-center transition-opacity ${
+                procedimiento?.tipoProcedimiento === "COMPLEJO"
+                  ? "border-acento bg-acento/10"
+                  : "border-institucional-100 opacity-40"
+              }`}
+            >
+              <p className="font-sans text-xs font-medium uppercase tracking-wide text-institucional-700">
+                Procedimiento complejo
+              </p>
+              <p
+                className={`mt-1 font-display text-2xl ${
+                  procedimiento?.tipoProcedimiento === "COMPLEJO" ? "text-acento" : "text-institucional-700"
+                }`}
+              >
+                {formatearValor(configuracion.valorComplejo)}
+              </p>
+            </div>
+          </div>
+          <p className="font-sans text-xs text-institucional-700">
+            Este procedimiento está clasificado como{" "}
+            <strong>{procedimiento?.tipoProcedimiento === "COMPLEJO" ? "complejo" : "estándar"}</strong>, por
+            lo que el valor a pagar es el resaltado arriba.
+          </p>
+        </Seccion>
       )}
 
       {necesitaRegistrar && (
