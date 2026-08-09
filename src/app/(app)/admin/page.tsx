@@ -17,6 +17,8 @@ interface ConfiguracionPagos {
   cuentaNumero: string | null;
   tarjetaHabilitada: boolean;
   tarjetaInstrucciones: string | null;
+  contactoTelefono: string | null;
+  contactoCorreo: string | null;
 }
 
 interface PagoPendiente {
@@ -27,7 +29,7 @@ interface PagoPendiente {
     id: string;
     numeroInterno: string | null;
     tipoProcedimiento: string;
-    usuario: { nombres: string; apellidos: string; correo: string };
+    usuario: { nombres: string; apellidos: string; correo: string; telefono: string | null };
   };
 }
 
@@ -152,6 +154,8 @@ export default function PanelAdministracion() {
   const [cuentaNumero, setCuentaNumero] = useState("");
   const [tarjetaHabilitada, setTarjetaHabilitada] = useState(false);
   const [tarjetaInstrucciones, setTarjetaInstrucciones] = useState("");
+  const [contactoTelefono, setContactoTelefono] = useState("");
+  const [contactoCorreo, setContactoCorreo] = useState("");
   const [guardandoConfig, setGuardandoConfig] = useState(false);
 
   // Pagos pendientes
@@ -206,6 +210,8 @@ export default function PanelAdministracion() {
         setCuentaNumero(config.cuentaNumero ?? "");
         setTarjetaHabilitada(config.tarjetaHabilitada);
         setTarjetaInstrucciones(config.tarjetaInstrucciones ?? "");
+        setContactoTelefono(config.contactoTelefono ?? "");
+        setContactoCorreo(config.contactoCorreo ?? "");
       }
     } catch {
       // sin configuración todavía — se deja en blanco, el admin la crea
@@ -276,6 +282,8 @@ export default function PanelAdministracion() {
         cuentaNumero: cuentaNumero.trim() || undefined,
         tarjetaHabilitada,
         tarjetaInstrucciones: tarjetaInstrucciones.trim() || undefined,
+        contactoTelefono: contactoTelefono.trim() || undefined,
+        contactoCorreo: contactoCorreo.trim() || undefined,
       });
       setMensaje("Valores de pago actualizados.");
     } catch (err) {
@@ -564,6 +572,34 @@ export default function PanelAdministracion() {
               </div>
             )}
           </div>
+
+          <div className="sm:col-span-2 border-t border-institucional-100 pt-4">
+            <h3 className="font-display text-base text-institucional-950">
+              Los funcionarios te podrán contactar a
+            </h3>
+            <p className="mt-1 font-sans text-xs text-institucional-700">
+              Se muestran en el Bloque 8 de procedimientos complejos, tras adjuntar el comprobante,
+              por si un asesor no se ha comunicado en 15 minutos.
+            </p>
+          </div>
+          <Campo etiqueta="Teléfono de contacto">
+            <input
+              className={claseInput}
+              placeholder="300 000 0000"
+              value={contactoTelefono}
+              onChange={(e) => setContactoTelefono(e.target.value)}
+            />
+          </Campo>
+          <Campo etiqueta="Correo de contacto">
+            <input
+              type="email"
+              className={claseInput}
+              placeholder="asesoria@fpjia.com"
+              value={contactoCorreo}
+              onChange={(e) => setContactoCorreo(e.target.value)}
+            />
+          </Campo>
+
           <div className="sm:col-span-2">
             <button
               type="submit"
@@ -587,10 +623,17 @@ export default function PanelAdministracion() {
                 <div>
                   <p className="font-sans text-sm font-medium text-institucional-950">
                     {p.procedimiento.numeroInterno ?? p.procedimiento.id} — {p.procedimiento.tipoProcedimiento}
+                    {p.procedimiento.tipoProcedimiento === "COMPLEJO" && (
+                      <span className="ml-2 rounded-full bg-acento/15 px-2 py-0.5 text-xs font-semibold text-acento">
+                        Requiere asesoría
+                      </span>
+                    )}
                   </p>
                   <p className="font-sans text-xs text-institucional-700">
-                    {p.procedimiento.usuario.nombres} {p.procedimiento.usuario.apellidos} (
-                    {p.procedimiento.usuario.correo}) · {formatearValor(p.valor)} · registrado el{" "}
+                    {p.procedimiento.usuario.nombres} {p.procedimiento.usuario.apellidos} ·{" "}
+                    {p.procedimiento.usuario.correo}
+                    {p.procedimiento.usuario.telefono && ` · ${p.procedimiento.usuario.telefono}`} ·{" "}
+                    {formatearValor(p.valor)} · registrado el{" "}
                     {new Date(p.createdAt).toLocaleDateString("es-CO")}
                   </p>
                 </div>

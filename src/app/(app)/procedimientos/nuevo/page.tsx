@@ -19,6 +19,7 @@ export default function PaginaNuevoProcedimiento() {
   const router = useRouter();
   const [fechaCaptura, setFechaCaptura] = useState("");
   const [horaCaptura, setHoraCaptura] = useState("");
+  const [delito, setDelito] = useState("Tráfico, Fabricación o Porte de Estupefacientes");
   const [tipoProcedimiento, setTipoProcedimiento] = useState<"ESTANDAR" | "COMPLEJO">("ESTANDAR");
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -30,15 +31,26 @@ export default function PaginaNuevoProcedimiento() {
       setError("La hora de captura/aprehensión es obligatoria.");
       return;
     }
+    if (!delito.trim()) {
+      setError("El delito es obligatorio.");
+      return;
+    }
     setCargando(true);
     try {
       const nuevo = await api.post<Procedimiento>("/procedimientos", {
-        delito: "Tráfico, Fabricación o Porte de Estupefacientes",
+        delito: delito.trim(),
         tipoProcedimiento,
         fechaCaptura: `${fechaCaptura}T00:00:00.000Z`,
         horaCaptura,
       });
-      router.push(`/procedimientos/${nuevo.id}`);
+      // Adenda 2026-08-08: un procedimiento COMPLEJO requiere pago antes
+      // de continuar (con asesoría especializada), así que se envía
+      // directo al Bloque 8 en vez del Bloque 1.
+      if (tipoProcedimiento === "COMPLEJO") {
+        router.push(`/procedimientos/${nuevo.id}/pago`);
+      } else {
+        router.push(`/procedimientos/${nuevo.id}`);
+      }
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "No fue posible crear el procedimiento.");
     } finally {
@@ -53,11 +65,27 @@ export default function PaginaNuevoProcedimiento() {
       </Link>
       <h1 className="mt-3 font-display text-2xl text-institucional-950">Nuevo procedimiento</h1>
       <p className="mt-1 font-sans text-sm text-institucional-700">
-        Tráfico, Fabricación o Porte de Estupefacientes. Podrás completar el resto de la información
-        más adelante — no hace falta terminarlo todo ahora.
+        Podrás completar el resto de la información más adelante — no hace falta terminarlo todo
+        ahora.
       </p>
 
       <form onSubmit={manejarEnvio} className="mt-8 space-y-5 rounded-lg border border-institucional-100 bg-white p-6 shadow-sm">
+        <div>
+          <label className="mb-1 block font-sans text-sm font-medium text-institucional-900">
+            Delito <span className="text-estado-error">*</span>
+          </label>
+          <input
+            required
+            value={delito}
+            onChange={(e) => setDelito(e.target.value)}
+            className="w-full rounded-md border border-institucional-100 px-3 py-2 font-sans text-sm outline-none focus:border-acento"
+          />
+          <p className="mt-1 font-sans text-xs text-institucional-700">
+            El delito determina qué formularios adicionales se habilitarán más adelante (ej.
+            víctimas y testigos).
+          </p>
+        </div>
+
         <fieldset className="grid grid-cols-2 gap-4">
           <legend className="mb-1 font-sans text-sm font-medium text-institucional-900">
             Fecha y hora de captura/aprehensión
@@ -98,6 +126,12 @@ export default function PaginaNuevoProcedimiento() {
               </button>
             ))}
           </div>
+          {tipoProcedimiento === "COMPLEJO" && (
+            <p className="mt-2 font-sans text-xs text-institucional-700">
+              Los procedimientos complejos requieren pago con asesoría especializada — al crearlo
+              irás directo al Bloque 8 (Pago).
+            </p>
+          )}
         </div>
 
         {error && (

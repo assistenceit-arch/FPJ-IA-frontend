@@ -27,6 +27,8 @@ interface ConfiguracionPagos {
   cuentaNumero: string | null;
   tarjetaHabilitada: boolean;
   tarjetaInstrucciones: string | null;
+  contactoTelefono: string | null;
+  contactoCorreo: string | null;
 }
 
 interface ProcedimientoResumen {
@@ -176,11 +178,17 @@ export default function BloquePago() {
     <div className="space-y-6">
       <div>
         <h1 className="font-display text-2xl text-institucional-950">8. Pago</h1>
-        <p className="mt-1 font-sans text-sm text-institucional-700">
-          El pago debe quedar <strong>Verificado</strong> por un administrador antes de poder generar
-          documentos en el Bloque 7 (salvo que el procedimiento esté exonerado desde el panel de
-          administración).
-        </p>
+        {procedimiento?.tipoProcedimiento === "COMPLEJO" ? (
+          <p className="mt-1 font-sans text-sm text-institucional-700">
+            Una vez verificado el pago por un administrador, uno de nuestros asesores especializados
+            tomará contacto con usted en el menor tiempo posible.
+          </p>
+        ) : (
+          <p className="mt-1 font-sans text-sm text-institucional-700">
+            El pago debe quedar <strong>Verificado</strong> por un administrador antes de poder generar
+            documentos en el Bloque 7.
+          </p>
+        )}
       </div>
 
       {error && (
@@ -347,6 +355,16 @@ export default function BloquePago() {
               </div>
             )}
           </dl>
+
+          {procedimiento?.tipoProcedimiento === "COMPLEJO" && (configuracion?.contactoTelefono || configuracion?.contactoCorreo) && (
+            <p className="rounded-md bg-institucional-100 px-3 py-2.5 font-sans text-sm text-institucional-800">
+              En caso de que un asesor no te haya contactado transcurridos 15 minutos de tu pago, por
+              favor llama al{" "}
+              {configuracion.contactoTelefono && <strong>{configuracion.contactoTelefono}</strong>}
+              {configuracion.contactoTelefono && configuracion.contactoCorreo && " o escribe a "}
+              {configuracion.contactoCorreo && <strong>{configuracion.contactoCorreo}</strong>}.
+            </p>
+          )}
         </Seccion>
       )}
 
