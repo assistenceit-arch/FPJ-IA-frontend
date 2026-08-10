@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useParams } from "next/navigation";
+import { usePathname, useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import type {
@@ -39,9 +39,11 @@ interface CapturadoResumen {
 
 export default function LayoutProcedimiento({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const { id } = useParams<{ id: string }>();
   const [bloques, setBloques] = useState<ItemBloque[] | null>(null);
   const [bloqueado, setBloqueado] = useState(false);
+  const [bloqueadoPorPagoComplejo, setBloqueadoPorPagoComplejo] = useState(false);
 
   useEffect(() => {
     let cancelado = false;
@@ -82,6 +84,26 @@ export default function LayoutProcedimiento({ children }: { children: React.Reac
       // el backend congela la edición de todos los datos base del
       // procedimiento (ver ProcedimientoAccesoService.verificarNoBloqueado).
       setBloqueado((documentos?.length ?? 0) > 0);
+
+      // Adenda 2026-08-08: en un procedimiento COMPLEJO, los Bloques 1 a
+      // 7 quedan deshabilitados hasta que un administrador verifique el
+      // pago (o el procedimiento sea exonerado) — ver
+      // ProcedimientoAccesoService.verificarPagoComplejoAprobado en el
+      // backend, que es quien realmente hace cumplir esto.
+      const esComplejoSinPagar =
+        procedimiento?.tipoProcedimiento === "COMPLEJO" &&
+        !procedimiento?.exoneradoPago &&
+        pago?.estadoPago !== "Verificado";
+      setBloqueadoPorPagoComplejo(esComplejoSinPagar);
+
+      // Si el usuario está en un bloque que quedó deshabilitado (llegó
+      // por URL directa, o el pago se rechazó mientras estaba ahí), se
+      // lo redirige al Bloque 8 — el backend lo rechazaría de todas
+      // formas, esto solo evita mostrarle un formulario inútil.
+      if (esComplejoSinPagar && !pathname.endsWith("/pago")) {
+        router.replace(`/procedimientos/${id}/pago`);
+        return;
+      }
 
       setBloques([
         { slug: "funcionario", numero: 1, titulo: "Funcionario y compañero", estado: estadoFuncionario(funcionario) },
@@ -136,6 +158,24 @@ export default function LayoutProcedimiento({ children }: { children: React.Reac
           {(bloques ?? []).map((bloque) => {
             const activo = pathname.endsWith(`/${bloque.slug}`);
             const punto = PUNTO_ESTADO[bloque.estado];
+            const deshabilitado = bloqueadoPorPagoComplejo && bloque.slug !== "pago";
+
+            if (deshabilitado) {
+              return (
+                <span
+                  key={bloque.slug}
+                  title="Deshabilitado hasta que un administrador verifique el pago"
+                  className="flex cursor-not-allowed items-center gap-2.5 rounded-md px-3 py-2.5 font-sans text-sm text-institucional-700/40"
+                >
+                  <span aria-hidden>🔒</span>
+                  <span className="flex-1">
+                    <span className="text-institucional-700/40">{bloque.numero}. </span>
+                    {bloque.titulo}
+                  </span>
+                </span>
+              );
+            }
+
             return (
               <Link
                 key={bloque.slug}
@@ -159,6 +199,13 @@ export default function LayoutProcedimiento({ children }: { children: React.Reac
         </nav>
       </aside>
       <section>
+        {bloqueadoPorPagoComplejo && (
+          <div className="mb-4 rounded-md border border-acento/30 bg-acento/10 px-4 py-3 font-sans text-sm text-institucional-900">
+            🔒 Este es un procedimiento <strong>complejo</strong>. Los Bloques 1 a 7 quedan
+            deshabilitados hasta que un administrador verifique el pago (Bloque 8) — una vez
+            verificado, podrás diligenciar el resto de la información con normalidad.
+          </div>
+        )}
         {bloqueado && (
           <div className="mb-4 rounded-md border border-acento/30 bg-acento/10 px-4 py-3 font-sans text-sm text-institucional-900">
             🔒 Este procedimiento ya generó documentos oficiales y quedó <strong>bloqueado para edición</strong>.
