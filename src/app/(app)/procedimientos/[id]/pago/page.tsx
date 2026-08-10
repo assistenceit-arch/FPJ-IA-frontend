@@ -14,6 +14,9 @@ interface Pago {
   estadoPago: "Pendiente" | "Verificado" | "Rechazado";
   createdAt: string;
   updatedAt: string;
+  procedimiento?: {
+    usuario: { nombres: string; apellidos: string | null; correo: string; telefono: string | null };
+  };
 }
 
 interface ConfiguracionPagos {
@@ -287,10 +290,17 @@ export default function BloquePago() {
               )}
           </div>
 
-          <p className="font-sans text-sm text-institucional-900">
-            Si ya realizó el pago, por favor adjunte el comprobante y en breve un administrador
-            verificará y, de ser correcto, aprobará la generación de los documentos.
-          </p>
+          {procedimiento?.tipoProcedimiento === "COMPLEJO" ? (
+            <p className="font-sans text-sm font-semibold uppercase text-institucional-900">
+              Si ya realizó el pago y este es correcto, espere que uno de nuestros asesores
+              especializados se pondrá en contacto con usted en breve.
+            </p>
+          ) : (
+            <p className="font-sans text-sm text-institucional-900">
+              Si ya realizó el pago, por favor adjunte el comprobante y en breve un administrador
+              verificará y, de ser correcto, aprobará la generación de los documentos.
+            </p>
+          )}
         </Seccion>
       )}
 
@@ -370,6 +380,20 @@ export default function BloquePago() {
 
       {pago && pago.estadoPago === "Pendiente" && esAdministrador && (
         <Seccion titulo="Verificar pago (solo administradores)">
+          {pago.procedimiento?.usuario && (
+            <div className="rounded-md bg-institucional-100 p-3">
+              <p className="font-sans text-xs font-medium uppercase tracking-wide text-institucional-700">
+                Datos del funcionario que registró el pago
+              </p>
+              <p className="mt-1 font-sans text-sm text-institucional-950">
+                {pago.procedimiento.usuario.nombres} {pago.procedimiento.usuario.apellidos ?? ""}
+              </p>
+              <p className="font-sans text-sm text-institucional-800">
+                {pago.procedimiento.usuario.correo}
+                {pago.procedimiento.usuario.telefono && ` · ${pago.procedimiento.usuario.telefono}`}
+              </p>
+            </div>
+          )}
           <Campo etiqueta="Observación">
             <textarea
               rows={2}

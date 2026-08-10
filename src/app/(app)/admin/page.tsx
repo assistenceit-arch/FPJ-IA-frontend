@@ -183,6 +183,7 @@ export default function PanelAdministracion() {
   const [nuevoApellidos, setNuevoApellidos] = useState("");
   const [nuevaIdentificacion, setNuevaIdentificacion] = useState("");
   const [nuevoCorreo, setNuevoCorreo] = useState("");
+  const [nuevoTelefono, setNuevoTelefono] = useState("");
   const [nuevaPassword, setNuevaPassword] = useState("");
   const [nuevoRol, setNuevoRol] = useState<"FUNCIONARIO" | "ADMINISTRADOR">("FUNCIONARIO");
   const [creandoUsuario, setCreandoUsuario] = useState(false);
@@ -369,6 +370,7 @@ export default function PanelAdministracion() {
         apellidos: nuevoApellidos,
         identificacion: nuevaIdentificacion,
         correo: nuevoCorreo,
+        telefono: nuevoTelefono.trim() || undefined,
         password: nuevaPassword,
         rol: nuevoRol,
       });
@@ -377,6 +379,7 @@ export default function PanelAdministracion() {
       setNuevoApellidos("");
       setNuevaIdentificacion("");
       setNuevoCorreo("");
+      setNuevoTelefono("");
       setNuevaPassword("");
       setNuevoRol("FUNCIONARIO");
       await cargarUsuarios();
@@ -803,6 +806,15 @@ export default function PanelAdministracion() {
           </Campo>
           <Campo etiqueta="Correo institucional" requerido>
             <input required type="email" className={claseInput} value={nuevoCorreo} onChange={(e) => setNuevoCorreo(e.target.value)} />
+          </Campo>
+          <Campo etiqueta="Teléfono">
+            <input
+              type="tel"
+              className={claseInput}
+              placeholder="300 000 0000"
+              value={nuevoTelefono}
+              onChange={(e) => setNuevoTelefono(e.target.value)}
+            />
           </Campo>
           <Campo etiqueta="Contraseña temporal" requerido>
             <input
