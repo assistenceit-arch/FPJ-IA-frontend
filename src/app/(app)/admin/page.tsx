@@ -2,6 +2,7 @@
 
 import { useEffect, useState, FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { api, ApiError } from "@/lib/api";
 import { payloadToken } from "@/lib/auth";
 import { descargarArchivo } from "@/lib/descargarArchivo";
@@ -170,6 +171,7 @@ export default function PanelAdministracion() {
   const [totalPaginasProcedimientos, setTotalPaginasProcedimientos] = useState(1);
   const [buscando, setBuscando] = useState(false);
   const [exonerando, setExonerando] = useState<string | null>(null);
+  const [eliminandoProcedimiento, setEliminandoProcedimiento] = useState<string | null>(null);
 
   // Usuarios / roles / bloqueo
   const [usuarios, setUsuarios] = useState<UsuarioAdmin[]>([]);
@@ -177,6 +179,7 @@ export default function PanelAdministracion() {
   const [totalPaginasUsuarios, setTotalPaginasUsuarios] = useState(1);
   const [cambiandoRol, setCambiandoRol] = useState<string | null>(null);
   const [cambiandoEstado, setCambiandoEstado] = useState<string | null>(null);
+  const [eliminandoUsuario, setEliminandoUsuario] = useState<string | null>(null);
 
   // Crear usuario
   const [nuevoNombres, setNuevoNombres] = useState("");
@@ -332,6 +335,24 @@ export default function PanelAdministracion() {
     }
   }
 
+  async function eliminarProcedimiento(procedimiento: ProcedimientoAdmin) {
+    const confirmado = window.confirm(
+      `¿Eliminar el procedimiento ${procedimiento.numeroInterno ?? procedimiento.id}? Esta acción es una eliminación lógica (no se borra físicamente) y se rechaza si ya generó documentos oficiales.`,
+    );
+    if (!confirmado) return;
+
+    setError(null);
+    setEliminandoProcedimiento(procedimiento.id);
+    try {
+      await api.delete(`/admin/procedimientos/${procedimiento.id}`);
+      await buscarProcedimientos(undefined, paginaProcedimientos);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "No fue posible eliminar el procedimiento.");
+    } finally {
+      setEliminandoProcedimiento(null);
+    }
+  }
+
   async function cambiarRol(usuario: UsuarioAdmin, rol: "FUNCIONARIO" | "ADMINISTRADOR") {
     if (rol === usuario.rol) return;
     setError(null);
@@ -356,6 +377,24 @@ export default function PanelAdministracion() {
       setError(err instanceof ApiError ? err.message : "No fue posible cambiar el estado del usuario.");
     } finally {
       setCambiandoEstado(null);
+    }
+  }
+
+  async function eliminarUsuario(usuario: UsuarioAdmin) {
+    const confirmado = window.confirm(
+      `¿Eliminar al usuario ${usuario.nombres} ${usuario.apellidos ?? ""} (${usuario.correo})? Esta acción no se puede deshacer desde aquí. Sus procedimientos ya creados NO se eliminan.`,
+    );
+    if (!confirmado) return;
+
+    setError(null);
+    setEliminandoUsuario(usuario.id);
+    try {
+      await api.delete(`/admin/usuarios/${usuario.id}`);
+      await cargarUsuarios();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "No fue posible eliminar el usuario.");
+    } finally {
+      setEliminandoUsuario(null);
     }
   }
 
@@ -641,6 +680,12 @@ export default function PanelAdministracion() {
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
+                  <Link
+                    href={`/procedimientos/${p.procedimiento.id}`}
+                    className="rounded-md border border-institucional-100 px-3 py-1.5 font-sans text-xs text-institucional-800 transition-colors hover:bg-institucional-50"
+                  >
+                    Ver procedimiento
+                  </Link>
                   <button
                     type="button"
                     onClick={() => descargarComprobantePendiente(p.procedimiento.id)}
@@ -710,22 +755,38 @@ export default function PanelAdministracion() {
                     {p.pago ? p.pago.estadoPago : "sin registrar"}
                   </p>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => alternarExoneracion(p)}
-                  disabled={exonerando === p.id}
-                  className={`rounded-md px-3 py-1.5 font-sans text-xs font-semibold shadow-sm transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
-                    p.exoneradoPago
-                      ? "border border-institucional-100 text-institucional-800 hover:bg-institucional-50"
-                      : "bg-acento text-white hover:bg-acento-hover"
-                  }`}
-                >
-                  {exonerando === p.id
-                    ? "Guardando…"
-                    : p.exoneradoPago
-                      ? "Quitar exoneración"
-                      : "Exonerar de pago"}
-                </button>
+                <div className="flex flex-wrap gap-2">
+                  <Link
+                    href={`/procedimientos/${p.id}`}
+                    className="rounded-md border border-institucional-100 px-3 py-1.5 font-sans text-xs text-institucional-800 transition-colors hover:bg-institucional-50"
+                  >
+                    Ver procedimiento
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => alternarExoneracion(p)}
+                    disabled={exonerando === p.id}
+                    className={`rounded-md px-3 py-1.5 font-sans text-xs font-semibold shadow-sm transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+                      p.exoneradoPago
+                        ? "border border-institucional-100 text-institucional-800 hover:bg-institucional-50"
+                        : "bg-acento text-white hover:bg-acento-hover"
+                    }`}
+                  >
+                    {exonerando === p.id
+                      ? "Guardando…"
+                      : p.exoneradoPago
+                        ? "Quitar exoneración"
+                        : "Exonerar de pago"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => eliminarProcedimiento(p)}
+                    disabled={eliminandoProcedimiento === p.id}
+                    className="rounded-md bg-estado-error px-3 py-1.5 font-sans text-xs font-semibold text-white shadow-sm transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {eliminandoProcedimiento === p.id ? "Eliminando…" : "Eliminar"}
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -780,6 +841,14 @@ export default function PanelAdministracion() {
                   }`}
                 >
                   {cambiandoEstado === u.id ? "Guardando…" : u.activo ? "Bloquear" : "Desbloquear"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => eliminarUsuario(u)}
+                  disabled={eliminandoUsuario === u.id}
+                  className="rounded-md bg-estado-error px-3 py-1.5 font-sans text-xs font-semibold text-white shadow-sm transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {eliminandoUsuario === u.id ? "Eliminando…" : "Eliminar"}
                 </button>
               </div>
             </div>
