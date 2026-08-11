@@ -176,6 +176,7 @@ function FormularioNuevoElemento({
   const [ubicacionHallazgo, setUbicacionHallazgo] = useState("");
   const [direccionIncautacion, setDireccionIncautacion] = useState("");
   const [cantidadEmpaques, setCantidadEmpaques] = useState("");
+  const [tipoEmpaque, setTipoEmpaque] = useState("");
   const [tipoSustancia, setTipoSustancia] = useState("");
   const [color, setColor] = useState("");
   const [caracteristicas, setCaracteristicas] = useState("");
@@ -200,6 +201,7 @@ function FormularioNuevoElemento({
       if (tipoElemento === "SUSTANCIA") {
         Object.assign(cuerpo, {
           cantidadEmpaques: Number(cantidadEmpaques),
+          tipoEmpaque,
           tipoSustancia,
           color,
           caracteristicas,
@@ -262,8 +264,23 @@ function FormularioNuevoElemento({
               onChange={(e) => setCantidadEmpaques(e.target.value)}
             />
           </Campo>
+          <Campo etiqueta="Tipo de empaque" requerido>
+            <input
+              required
+              className={claseInput}
+              placeholder="Ej. bolsas plásticas, papeletas, frascos, cajas, pastillas…"
+              value={tipoEmpaque}
+              onChange={(e) => setTipoEmpaque(e.target.value)}
+            />
+          </Campo>
           <Campo etiqueta="Tipo de sustancia" requerido>
-            <input required className={claseInput} value={tipoSustancia} onChange={(e) => setTipoSustancia(e.target.value)} />
+            <input
+              required
+              className={claseInput}
+              placeholder="Ej. vegetal, pulverulenta, líquida, cristalina…"
+              value={tipoSustancia}
+              onChange={(e) => setTipoSustancia(e.target.value)}
+            />
           </Campo>
           <Campo etiqueta="Color" requerido>
             <input required className={claseInput} value={color} onChange={(e) => setColor(e.target.value)} />

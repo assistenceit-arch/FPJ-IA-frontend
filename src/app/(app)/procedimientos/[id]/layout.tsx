@@ -35,6 +35,11 @@ interface CapturadoResumen {
   tipoInterviniente: "CAPTURADO" | "APREHENDIDO";
   usoEsposas: boolean | null;
   justificacionEsposas: string | null;
+  presentaLesiones: boolean | null;
+  descripcionLesiones: string | null;
+  trasladoCentroAsistencial: boolean | null;
+  centroAsistencial: string | null;
+  motivoTraslado: string | null;
 }
 
 export default function LayoutProcedimiento({ children }: { children: React.ReactNode }) {
@@ -122,7 +127,7 @@ export default function LayoutProcedimiento({ children }: { children: React.Reac
           estado: estadoActuaciones(
             actuaciones,
             procedimiento,
-            (capturados ?? []).filter((c) => c.tipoInterviniente === "APREHENDIDO"),
+            capturados ?? [],
           ),
         },
         { slug: "relato", numero: 6, titulo: "Relato de los hechos", estado: estadoRelato(actuaciones) },

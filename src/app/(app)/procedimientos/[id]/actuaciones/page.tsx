@@ -60,7 +60,23 @@ function FilaEsposas({
   persona,
 }: {
   procedimientoId: string;
-  persona: { id: string; primerNombre: string; primerApellido: string; usoEsposas: boolean | null; justificacionEsposas: string | null };
+  persona: {
+    id: string;
+    primerNombre: string;
+    primerApellido: string;
+    tipoInterviniente: string;
+    usoEsposas: boolean | null;
+    justificacionEsposas: string | null;
+    tiempoEsposado: string | null;
+    motivoRetiroEsposas: string | null;
+    presentaLesiones: boolean | null;
+    descripcionLesiones: string | null;
+    parteCuerpoLesion: string | null;
+    motivoLesion: string | null;
+    trasladoCentroAsistencial: boolean | null;
+    centroAsistencial: string | null;
+    motivoTraslado: string | null;
+  };
 }) {
   // Adenda 2026-08-06: antes iniciaba en `false` por defecto, lo que
   // mostraba el botón "No" ya seleccionado sin que el funcionario
@@ -70,15 +86,66 @@ function FilaEsposas({
   // que el funcionario elige Sí o No de forma explícita.
   const [usoEsposas, setUsoEsposas] = useState<boolean | null>(persona.usoEsposas);
   const [justificacionEsposas, setJustificacionEsposas] = useState(persona.justificacionEsposas ?? "");
+  // Adenda 2026-08-11: tiempo y motivo de retiro, junto con la
+  // justificación de por qué se colocaron.
+  const [tiempoEsposado, setTiempoEsposado] = useState(persona.tiempoEsposado ?? "");
+  const [motivoRetiroEsposas, setMotivoRetiroEsposas] = useState(persona.motivoRetiroEsposas ?? "");
+
+  // Adenda 2026-08-11: lesiones pasa de una sola respuesta por
+  // procedimiento a individual por interviniente (aplica a Capturados Y
+  // Aprehendidos, a diferencia de esposas que solo aplica a
+  // Aprehendidos), con los mismos cuidados de "sin responder" que
+  // esposas.
+  const [presentaLesiones, setPresentaLesiones] = useState<boolean | null>(persona.presentaLesiones);
+  const [descripcionLesiones, setDescripcionLesiones] = useState(persona.descripcionLesiones ?? "");
+  const [parteCuerpoLesion, setParteCuerpoLesion] = useState(persona.parteCuerpoLesion ?? "");
+  const [motivoLesion, setMotivoLesion] = useState(persona.motivoLesion ?? "");
+  const [trasladoCentroAsistencial, setTrasladoCentroAsistencial] = useState<boolean | null>(
+    persona.trasladoCentroAsistencial,
+  );
+  const [centroAsistencial, setCentroAsistencial] = useState(persona.centroAsistencial ?? "");
+  const [motivoTraslado, setMotivoTraslado] = useState(persona.motivoTraslado ?? "");
+
+  const esAprehendido = persona.tipoInterviniente === "APREHENDIDO";
 
   const guardar = useCallback(
-    async (valor: { usoEsposas: boolean | null; justificacionEsposas: string }) => {
-      if (valor.usoEsposas === null) return;
+    async (valor: {
+      usoEsposas: boolean | null;
+      justificacionEsposas: string;
+      tiempoEsposado: string;
+      motivoRetiroEsposas: string;
+      presentaLesiones: boolean | null;
+      descripcionLesiones: string;
+      parteCuerpoLesion: string;
+      motivoLesion: string;
+      trasladoCentroAsistencial: boolean | null;
+      centroAsistencial: string;
+      motivoTraslado: string;
+    }) => {
+      // Nada que guardar todavía si ninguna de las dos preguntas
+      // "sin responder" (esposas/lesiones) se ha contestado — evita un
+      // PATCH vacío/prematuro apenas se monta la fila.
+      if (valor.usoEsposas === null && valor.presentaLesiones === null) return;
       await api.patch(`/procedimientos/${procedimientoId}/capturados/${persona.id}`, valor);
     },
     [procedimientoId, persona.id],
   );
-  const { estado } = useAutoguardado({ usoEsposas, justificacionEsposas }, guardar);
+  const { estado } = useAutoguardado(
+    {
+      usoEsposas,
+      justificacionEsposas,
+      tiempoEsposado,
+      motivoRetiroEsposas,
+      presentaLesiones,
+      descripcionLesiones,
+      parteCuerpoLesion,
+      motivoLesion,
+      trasladoCentroAsistencial,
+      centroAsistencial,
+      motivoTraslado,
+    },
+    guardar,
+  );
 
   return (
     <div className="rounded-lg border border-institucional-100 bg-white p-4 shadow-sm">
@@ -88,33 +155,126 @@ function FilaEsposas({
         </p>
         <IndicadorGuardado estado={estado} />
       </div>
-      <div className="mt-3">
-        <Campo etiqueta="¿Se le colocaron esposas?" requerido>
-          <SiNo valor={usoEsposas} onChange={setUsoEsposas} />
-        </Campo>
-      </div>
-      {usoEsposas && (
-        <div className="mt-3">
-          <Campo etiqueta="Justificación del uso de esposas" requerido>
-            <textarea
-              rows={2}
-              className={claseInput}
-              value={justificacionEsposas}
-              onChange={(e) => setJustificacionEsposas(e.target.value)}
-            />
+
+      {esAprehendido && (
+        <div className="mt-3 space-y-3 border-b border-institucional-100 pb-4">
+          <p className="font-sans text-xs font-semibold uppercase tracking-wide text-institucional-700">
+            Uso de esposas
+          </p>
+          <Campo etiqueta="¿Se le colocaron esposas?" requerido>
+            <SiNo valor={usoEsposas} onChange={setUsoEsposas} />
           </Campo>
+          {usoEsposas && (
+            <>
+              <Campo etiqueta="Justificación (por qué se colocaron)" requerido>
+                <textarea
+                  rows={2}
+                  className={claseInput}
+                  value={justificacionEsposas}
+                  onChange={(e) => setJustificacionEsposas(e.target.value)}
+                />
+              </Campo>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <Campo etiqueta="Tiempo aproximado esposado" requerido>
+                  <input
+                    className={claseInput}
+                    placeholder="Ej. 8 minutos"
+                    value={tiempoEsposado}
+                    onChange={(e) => setTiempoEsposado(e.target.value)}
+                  />
+                </Campo>
+                <Campo etiqueta="Motivo del retiro" requerido>
+                  <input
+                    className={claseInput}
+                    placeholder="Ej. se restableció la condición de seguridad"
+                    value={motivoRetiroEsposas}
+                    onChange={(e) => setMotivoRetiroEsposas(e.target.value)}
+                  />
+                </Campo>
+              </div>
+            </>
+          )}
         </div>
       )}
+
+      <div className="mt-3 space-y-3">
+        <p className="font-sans text-xs font-semibold uppercase tracking-wide text-institucional-700">
+          Estado físico
+        </p>
+        <Campo etiqueta="¿Presenta lesiones?" requerido>
+          <SiNo valor={presentaLesiones} onChange={setPresentaLesiones} />
+        </Campo>
+        {presentaLesiones && (
+          <>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <Campo etiqueta="Descripción de las lesiones" requerido>
+                <textarea
+                  rows={2}
+                  className={claseInput}
+                  value={descripcionLesiones}
+                  onChange={(e) => setDescripcionLesiones(e.target.value)}
+                />
+              </Campo>
+              <Campo etiqueta="Parte del cuerpo" requerido>
+                <input
+                  className={claseInput}
+                  value={parteCuerpoLesion}
+                  onChange={(e) => setParteCuerpoLesion(e.target.value)}
+                />
+              </Campo>
+            </div>
+            <Campo etiqueta="Motivo de la lesión" requerido>
+              <input
+                className={claseInput}
+                placeholder="Ej. caída durante el intento de fuga"
+                value={motivoLesion}
+                onChange={(e) => setMotivoLesion(e.target.value)}
+              />
+            </Campo>
+            <Campo etiqueta="¿Fue trasladado a centro asistencial?" requerido>
+              <SiNo valor={trasladoCentroAsistencial} onChange={setTrasladoCentroAsistencial} />
+            </Campo>
+            {trasladoCentroAsistencial && (
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <Campo etiqueta="Nombre del centro asistencial" requerido>
+                  <input
+                    className={claseInput}
+                    value={centroAsistencial}
+                    onChange={(e) => setCentroAsistencial(e.target.value)}
+                  />
+                </Campo>
+                <Campo etiqueta="Motivo del traslado" requerido>
+                  <input
+                    className={claseInput}
+                    value={motivoTraslado}
+                    onChange={(e) => setMotivoTraslado(e.target.value)}
+                  />
+                </Campo>
+              </div>
+            )}
+          </>
+        )}
+      </div>
     </div>
   );
 }
 
-interface AprehendidoResumen {
+interface IntervinienteResumen {
   id: string;
   primerNombre: string;
   primerApellido: string;
+  tipoInterviniente: string;
   usoEsposas: boolean | null;
   justificacionEsposas: string | null;
+  tiempoEsposado: string | null;
+  motivoRetiroEsposas: string | null;
+  presentaLesiones: boolean | null;
+  descripcionLesiones: string | null;
+  parteCuerpoLesion: string | null;
+  motivoLesion: string | null;
+  trasladoCentroAsistencial: boolean | null;
+  centroAsistencial: string | null;
+  motivoTraslado: string | null;
 }
 
 export default function BloqueActuaciones() {
@@ -122,7 +282,7 @@ export default function BloqueActuaciones() {
   const [cargando, setCargando] = useState(true);
   const [datos, setDatos] = useState<ActuacionesProcedimiento>(ACTUACIONES_VACIAS);
   const [procedimiento, setProcedimiento] = useState<Procedimiento | null>(null);
-  const [aprehendidos, setAprehendidos] = useState<AprehendidoResumen[]>([]);
+  const [intervinientes, setIntervinientes] = useState<IntervinienteResumen[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -130,14 +290,12 @@ export default function BloqueActuaciones() {
     Promise.all([
       api.get<ActuacionesProcedimiento | null>(`/procedimientos/${id}/actuaciones-procedimiento`).catch(() => null),
       api.get<Procedimiento>(`/procedimientos/${id}`),
-      api
-        .get<Array<AprehendidoResumen & { tipoInterviniente: string }>>(`/procedimientos/${id}/capturados`)
-        .catch(() => []),
+      api.get<IntervinienteResumen[]>(`/procedimientos/${id}/capturados`).catch(() => []),
     ]).then(([a, p, capturados]) => {
       if (cancelado) return;
       if (a) setDatos({ ...ACTUACIONES_VACIAS, ...soloClaves(a, CLAVES_ACTUACIONES) });
       setProcedimiento(p);
-      setAprehendidos(capturados.filter((c) => c.tipoInterviniente === "APREHENDIDO"));
+      setIntervinientes(capturados);
       setCargando(false);
     });
     return () => {
@@ -234,63 +392,24 @@ export default function BloqueActuaciones() {
       </Seccion>
 
       <div>
-        <h2 className="font-display text-lg text-institucional-950">Uso de esposas</h2>
+        <h2 className="font-display text-lg text-institucional-950">Esposas y estado físico</h2>
         <p className="mt-1 font-sans text-sm text-institucional-700">
-          Pregunta individual por interviniente Aprehendido (menor de edad) — en procedimientos
-          mixtos, cada persona se responde por separado.
+          Preguntas individuales por interviniente — en procedimientos con varias personas, cada
+          una se responde por separado. El uso de esposas solo aplica a Aprehendidos (menores de
+          edad); las lesiones aplican a cualquier interviniente.
         </p>
         <div className="mt-3 space-y-3">
-          {aprehendidos.length === 0 ? (
+          {intervinientes.length === 0 ? (
             <p className="rounded-lg border border-dashed border-institucional-100 bg-white px-4 py-6 text-center font-sans text-sm text-institucional-700">
-              No hay intervinientes Aprehendidos (menores de edad) en este procedimiento.
+              No hay intervinientes registrados en este procedimiento todavía.
             </p>
           ) : (
-            aprehendidos.map((persona) => (
+            intervinientes.map((persona) => (
               <FilaEsposas key={persona.id} procedimientoId={id} persona={persona} />
             ))
           )}
         </div>
       </div>
-
-      <Seccion titulo="Estado físico">
-        <Campo etiqueta="¿Presenta lesiones?" requerido>
-          <SiNo valor={datos.presentaLesiones} onChange={(v) => set({ presentaLesiones: v })} />
-        </Campo>
-        {datos.presentaLesiones && (
-          <Campo etiqueta="Descripción de las lesiones" requerido>
-            <textarea
-              rows={2}
-              className={claseInput}
-              value={datos.descripcionLesiones ?? ""}
-              onChange={(e) => set({ descripcionLesiones: e.target.value })}
-            />
-          </Campo>
-        )}
-      </Seccion>
-
-      <Seccion titulo="Centro asistencial">
-        <Campo etiqueta="¿Fue trasladado a centro asistencial?" requerido>
-          <SiNo valor={datos.trasladoCentroAsistencial} onChange={(v) => set({ trasladoCentroAsistencial: v })} />
-        </Campo>
-        {datos.trasladoCentroAsistencial && (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Campo etiqueta="Nombre del centro asistencial" requerido>
-              <input
-                className={claseInput}
-                value={datos.centroAsistencial ?? ""}
-                onChange={(e) => set({ centroAsistencial: e.target.value })}
-              />
-            </Campo>
-            <Campo etiqueta="Motivo del traslado" requerido>
-              <input
-                className={claseInput}
-                value={datos.motivoTraslado ?? ""}
-                onChange={(e) => set({ motivoTraslado: e.target.value })}
-              />
-            </Campo>
-          </div>
-        )}
-      </Seccion>
 
       <div>
         <div className="flex items-center justify-between">

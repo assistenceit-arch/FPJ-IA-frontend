@@ -32,9 +32,6 @@ interface Capturado {
   descripcionFisicaVestimenta: string | null;
   nombrePadres: string | null;
   telefonoPadres: string | null;
-  nombreAcudiente: string | null;
-  parentescoAcudiente: string | null;
-  telefonoAcudiente: string | null;
   participacionHechos: string | null;
   comportamientoAbordaje: string | null;
   identificacionPlena: boolean;
@@ -43,6 +40,7 @@ interface Capturado {
 
 interface ContactoNotificacion {
   nombre?: string;
+  parentesco?: string;
   telefono?: string;
   comunicacionExitosa: boolean;
   horaComunicacion?: string;
@@ -146,9 +144,6 @@ export default function EditarInterviniente() {
         "descripcionFisicaVestimenta",
         "nombrePadres",
         "telefonoPadres",
-        "nombreAcudiente",
-        "parentescoAcudiente",
-        "telefonoAcudiente",
         "participacionHechos",
         "comportamientoAbordaje",
         "identificacionPlena",
@@ -492,32 +487,6 @@ export default function EditarInterviniente() {
         )}
       </Seccion>
 
-      {p.tipoInterviniente === "APREHENDIDO" && (
-        <Seccion titulo="Acudiente (exclusivo para adolescentes)">
-          <Campo etiqueta="Nombre del acudiente">
-            <input
-              className={claseInput}
-              value={p.nombreAcudiente ?? ""}
-              onChange={(e) => set({ nombreAcudiente: e.target.value })}
-            />
-          </Campo>
-          <Campo etiqueta="Parentesco">
-            <input
-              className={claseInput}
-              value={p.parentescoAcudiente ?? ""}
-              onChange={(e) => set({ parentescoAcudiente: e.target.value })}
-            />
-          </Campo>
-          <Campo etiqueta="Teléfono del acudiente">
-            <input
-              className={claseInput}
-              value={p.telefonoAcudiente ?? ""}
-              onChange={(e) => set({ telefonoAcudiente: e.target.value })}
-            />
-          </Campo>
-        </Seccion>
-      )}
-
       <div>
         <div className="flex items-center justify-between">
           <h2 className="font-display text-lg text-institucional-950">Persona a informar la captura/aprehensión</h2>
@@ -529,6 +498,13 @@ export default function EditarInterviniente() {
               className={claseInput}
               value={contacto.nombre ?? ""}
               onChange={(e) => setContacto({ ...contacto, nombre: e.target.value })}
+            />
+          </Campo>
+          <Campo etiqueta="Parentesco">
+            <input
+              className={claseInput}
+              value={contacto.parentesco ?? ""}
+              onChange={(e) => setContacto({ ...contacto, parentesco: e.target.value })}
             />
           </Campo>
           <Campo etiqueta="Teléfono">

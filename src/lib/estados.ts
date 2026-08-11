@@ -58,9 +58,11 @@ export function estadoElementos(cantidadElementos: number | null): EstadoBloque 
  * subsección están llenos cuando la pregunta Sí/No correspondiente fue
  * "Sí", (b) la puesta a disposición (fecha/hora, guardadas en el
  * Procedimiento) está diligenciada, (c) si hay demora, hay justificación,
- * y (d) cada interviniente Aprehendido tiene respondida la pregunta de
- * uso de esposas (Adenda 2026-08-03: pasó de ser una sola respuesta del
- * procedimiento a una pregunta individual por interviniente Aprehendido).
+ * (d) cada interviniente Aprehendido tiene respondida la pregunta de uso
+ * de esposas (Adenda 2026-08-03), y (e) cada interviniente (cualquier
+ * tipo) tiene respondida la pregunta de lesiones (Adenda 2026-08-11:
+ * pasó de ser una sola respuesta del procedimiento a individual por
+ * interviniente, mismo criterio que esposas).
  *
  * Nota (actualizada 2026-08-04): demoraExistente lo calcula el backend
  * al vuelo cada vez que se consulta este bloque (no es un valor
@@ -70,7 +72,16 @@ export function estadoElementos(cantidadElementos: number | null): EstadoBloque 
 export function estadoActuaciones(
   actuaciones: ActuacionesProcedimiento | null,
   procedimiento: Procedimiento | null,
-  aprehendidos: Array<{ usoEsposas: boolean | null; justificacionEsposas: string | null }> = [],
+  intervinientes: Array<{
+    tipoInterviniente?: string;
+    usoEsposas: boolean | null;
+    justificacionEsposas: string | null;
+    presentaLesiones?: boolean | null;
+    descripcionLesiones?: string | null;
+    trasladoCentroAsistencial?: boolean | null;
+    centroAsistencial?: string | null;
+    motivoTraslado?: string | null;
+  }> = [],
 ): EstadoBloque {
   if (!actuaciones) return "vacio";
 
@@ -83,25 +94,33 @@ export function estadoActuaciones(
   if (actuaciones.derechosLeidos) {
     requeridos.push(actuaciones.fechaDerechos, actuaciones.horaDerechos);
   }
-  if (actuaciones.presentaLesiones) {
-    requeridos.push(actuaciones.descripcionLesiones);
-  }
-  if (actuaciones.trasladoCentroAsistencial) {
-    requeridos.push(actuaciones.centroAsistencial, actuaciones.motivoTraslado);
-  }
   if (actuaciones.demoraExistente) {
     requeridos.push(actuaciones.justificacionDemora);
   }
 
   const textosCompletos = requeridos.every((v) => Boolean(v && v.trim()));
 
-  const esposasCompletas = aprehendidos.every((a) => {
-    if (a.usoEsposas === null || a.usoEsposas === undefined) return false;
-    if (a.usoEsposas === true) return Boolean(a.justificacionEsposas && a.justificacionEsposas.trim());
+  const esposasCompletas = intervinientes
+    .filter((p) => p.tipoInterviniente === "APREHENDIDO")
+    .every((a) => {
+      if (a.usoEsposas === null || a.usoEsposas === undefined) return false;
+      if (a.usoEsposas === true) return Boolean(a.justificacionEsposas && a.justificacionEsposas.trim());
+      return true;
+    });
+
+  const lesionesCompletas = intervinientes.every((p) => {
+    if (p.presentaLesiones === null || p.presentaLesiones === undefined) return false;
+    if (p.presentaLesiones === true) {
+      if (!p.descripcionLesiones?.trim()) return false;
+      if (p.trasladoCentroAsistencial === null || p.trasladoCentroAsistencial === undefined) return false;
+      if (p.trasladoCentroAsistencial === true) {
+        return Boolean(p.centroAsistencial?.trim() && p.motivoTraslado?.trim());
+      }
+    }
     return true;
   });
 
-  return textosCompletos && esposasCompletas ? "completo" : "pendiente";
+  return textosCompletos && esposasCompletas && lesionesCompletas ? "completo" : "pendiente";
 }
 
 /**

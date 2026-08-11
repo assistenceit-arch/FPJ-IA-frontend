@@ -52,11 +52,6 @@ export interface ActuacionesProcedimiento {
   fechaDerechos: string;
   horaDerechos: string;
   comprendeDerechos: boolean;
-  presentaLesiones: boolean;
-  descripcionLesiones?: string;
-  trasladoCentroAsistencial: boolean;
-  centroAsistencial?: string;
-  motivoTraslado?: string;
   autoridadReceptora: string;
   justificacionDemora?: string;
   demoraExistente?: boolean;
@@ -74,11 +69,6 @@ export const CLAVES_ACTUACIONES = [
   "fechaDerechos",
   "horaDerechos",
   "comprendeDerechos",
-  "presentaLesiones",
-  "descripcionLesiones",
-  "trasladoCentroAsistencial",
-  "centroAsistencial",
-  "motivoTraslado",
   "autoridadReceptora",
   "justificacionDemora",
   "observacionInicial",
@@ -94,7 +84,5 @@ export const ACTUACIONES_VACIAS: ActuacionesProcedimiento = {
   fechaDerechos: "",
   horaDerechos: "",
   comprendeDerechos: false,
-  presentaLesiones: false,
-  trasladoCentroAsistencial: false,
   autoridadReceptora: "",
 };
