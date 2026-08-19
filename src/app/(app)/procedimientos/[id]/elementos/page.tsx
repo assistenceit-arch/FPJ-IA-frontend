@@ -3,6 +3,7 @@
 import { useEffect, useState, FormEvent } from "react";
 import { useParams } from "next/navigation";
 import { api, ApiError } from "@/lib/api";
+import { DELITO_ARMAS, DELITO_ESTUPEFACIENTES } from "@/lib/delitos";
 
 interface CapturadoResumen {
   id: string;
@@ -12,7 +13,7 @@ interface CapturadoResumen {
 
 interface Elemento {
   id: string;
-  tipoElemento: "SUSTANCIA" | "DINERO" | "CELULAR" | "OTRO";
+  tipoElemento: "SUSTANCIA" | "DINERO" | "CELULAR" | "ARMA" | "OTRO";
   descripcionBase: string;
   ubicacionHallazgo: string | null;
   direccionIncautacion: string;
@@ -37,13 +38,18 @@ export default function BloqueElementos() {
   const { id } = useParams<{ id: string }>();
   const [intervinientes, setIntervinientes] = useState<CapturadoResumen[]>([]);
   const [elementosPorPersona, setElementosPorPersona] = useState<Record<string, Elemento[]>>({});
+  const [delito, setDelito] = useState<string>("");
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
 
   async function cargarTodo() {
-    const personas = await api.get<CapturadoResumen[]>(`/procedimientos/${id}/capturados`);
+    const [personas, procedimiento] = await Promise.all([
+      api.get<CapturadoResumen[]>(`/procedimientos/${id}/capturados`),
+      api.get<{ delito: string }>(`/procedimientos/${id}`),
+    ]);
     setIntervinientes(personas);
+    setDelito(procedimiento.delito);
     const listas = await Promise.all(
       personas.map((p) => api.get<Elemento[]>(`/procedimientos/${id}/capturados/${p.id}/elementos`)),
     );
@@ -113,6 +119,7 @@ export default function BloqueElementos() {
         <FormularioNuevoElemento
           procedimientoId={id}
           intervinientes={intervinientes}
+          delito={delito}
           onCancelar={() => setMostrarFormulario(false)}
           onCreado={async () => {
             setMostrarFormulario(false);
@@ -163,16 +170,21 @@ export default function BloqueElementos() {
 function FormularioNuevoElemento({
   procedimientoId,
   intervinientes,
+  delito,
   onCancelar,
   onCreado,
 }: {
   procedimientoId: string;
   intervinientes: CapturadoResumen[];
+  delito: string;
   onCancelar: () => void;
   onCreado: () => void;
 }) {
+  const esArmas = delito === DELITO_ARMAS;
   const [capturadoId, setCapturadoId] = useState(intervinientes[0]?.id ?? "");
-  const [tipoElemento, setTipoElemento] = useState<"SUSTANCIA" | "DINERO" | "CELULAR" | "OTRO">("SUSTANCIA");
+  const [tipoElemento, setTipoElemento] = useState<"SUSTANCIA" | "DINERO" | "CELULAR" | "ARMA" | "OTRO">(
+    esArmas ? "ARMA" : "SUSTANCIA",
+  );
   const [ubicacionHallazgo, setUbicacionHallazgo] = useState("");
   const [direccionIncautacion, setDireccionIncautacion] = useState("");
   const [cantidadEmpaques, setCantidadEmpaques] = useState("");
@@ -185,12 +197,26 @@ function FormularioNuevoElemento({
   const [marca, setMarca] = useState("");
   const [imei, setImei] = useState("");
   const [descripcionManual, setDescripcionManual] = useState("");
+  // Adenda 2026-08-12: módulo de Porte Ilegal de Armas de Fuego.
+  const [tipoArma, setTipoArma] = useState<"PISTOLA" | "REVOLVER" | "ESCOPETA" | "FUSIL" | "HECHIZA">("PISTOLA");
+  const [modelo, setModelo] = useState("");
+  const [calibre, setCalibre] = useState("");
+  const [serial, setSerial] = useState("");
+  const [serialLegible, setSerialLegible] = useState<boolean | null>(null);
+  const [estadoArma, setEstadoArma] = useState<"BUEN_ESTADO" | "MAL_ESTADO">("BUEN_ESTADO");
+  const [cantidadMuniciones, setCantidadMuniciones] = useState("");
+  const [calibreMunicionCoincide, setCalibreMunicionCoincide] = useState<boolean | null>(null);
+  const [cantidadCargadores, setCantidadCargadores] = useState("");
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function manejarEnvio(evento: FormEvent) {
     evento.preventDefault();
     setError(null);
+    if (tipoElemento === "ARMA" && serialLegible === null) {
+      setError("Indica si el serial del arma es legible o no — esta verificación es obligatoria.");
+      return;
+    }
     setCargando(true);
     try {
       const cuerpo: Record<string, unknown> = {
@@ -210,6 +236,21 @@ function FormularioNuevoElemento({
         Object.assign(cuerpo, { valorTotal: Number(valorTotal), denominaciones });
       } else if (tipoElemento === "CELULAR") {
         Object.assign(cuerpo, { marca, color, imei: imei || undefined });
+      } else if (tipoElemento === "ARMA") {
+        Object.assign(cuerpo, {
+          tipoArma,
+          marca: marca || undefined,
+          modelo: modelo || undefined,
+          calibre: calibre || undefined,
+          color: color || undefined,
+          serial: serial || undefined,
+          serialLegible,
+          estadoArma,
+          cantidadMuniciones: cantidadMuniciones ? Number(cantidadMuniciones) : undefined,
+          calibreMunicionCoincide:
+            calibreMunicionCoincide === null ? undefined : calibreMunicionCoincide,
+          cantidadCargadores: cantidadCargadores ? Number(cantidadCargadores) : undefined,
+        });
       } else {
         Object.assign(cuerpo, { descripcionManual });
       }
@@ -244,7 +285,8 @@ function FormularioNuevoElemento({
             value={tipoElemento}
             onChange={(e) => setTipoElemento(e.target.value as typeof tipoElemento)}
           >
-            <option value="SUSTANCIA">Sustancia</option>
+            {delito === DELITO_ESTUPEFACIENTES && <option value="SUSTANCIA">Sustancia</option>}
+            {esArmas && <option value="ARMA">Arma de fuego</option>}
             <option value="DINERO">Dinero</option>
             <option value="CELULAR">Celular</option>
             <option value="OTRO">Otro</option>
@@ -331,6 +373,115 @@ function FormularioNuevoElemento({
           </Campo>
           <Campo etiqueta="IMEI (si es visible)">
             <input className={claseInput} value={imei} onChange={(e) => setImei(e.target.value)} />
+          </Campo>
+        </div>
+      )}
+
+      {tipoElemento === "ARMA" && (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Campo etiqueta="Tipo de arma" requerido>
+            <select
+              className={claseInput}
+              value={tipoArma}
+              onChange={(e) => setTipoArma(e.target.value as typeof tipoArma)}
+            >
+              <option value="PISTOLA">Pistola</option>
+              <option value="REVOLVER">Revólver</option>
+              <option value="ESCOPETA">Escopeta</option>
+              <option value="FUSIL">Fusil</option>
+              <option value="HECHIZA">Hechiza o artesanal</option>
+            </select>
+          </Campo>
+          <Campo etiqueta="Estado del arma" requerido>
+            <select
+              className={claseInput}
+              value={estadoArma}
+              onChange={(e) => setEstadoArma(e.target.value as typeof estadoArma)}
+            >
+              <option value="BUEN_ESTADO">En buen estado</option>
+              <option value="MAL_ESTADO">En mal estado</option>
+            </select>
+          </Campo>
+          <Campo etiqueta="Marca">
+            <input
+              className={claseInput}
+              placeholder="No suele aplicar a armas hechizas"
+              value={marca}
+              onChange={(e) => setMarca(e.target.value)}
+            />
+          </Campo>
+          <Campo etiqueta="Modelo">
+            <input className={claseInput} value={modelo} onChange={(e) => setModelo(e.target.value)} />
+          </Campo>
+          <Campo etiqueta="Calibre">
+            <input className={claseInput} value={calibre} onChange={(e) => setCalibre(e.target.value)} />
+          </Campo>
+          <Campo etiqueta="Color">
+            <input className={claseInput} value={color} onChange={(e) => setColor(e.target.value)} />
+          </Campo>
+          <Campo etiqueta="Serial">
+            <input
+              className={claseInput}
+              placeholder="Si es legible, transcríbelo aquí"
+              value={serial}
+              onChange={(e) => setSerial(e.target.value)}
+            />
+          </Campo>
+          <Campo etiqueta="¿El serial es legible?" requerido>
+            <div className="mt-1 flex gap-3">
+              {[true, false].map((valor) => (
+                <button
+                  type="button"
+                  key={String(valor)}
+                  onClick={() => setSerialLegible(valor)}
+                  className={`rounded-md border px-3 py-2 font-sans text-sm transition-colors ${
+                    serialLegible === valor
+                      ? "border-acento bg-acento-light text-acento-hover"
+                      : "border-institucional-100 text-institucional-700 hover:bg-institucional-50"
+                  }`}
+                >
+                  {valor ? "Sí, legible" : "No legible / borrado o alterado"}
+                </button>
+              ))}
+            </div>
+          </Campo>
+          <Campo etiqueta="Cantidad de municiones halladas">
+            <input
+              type="number"
+              min={0}
+              className={claseInput}
+              value={cantidadMuniciones}
+              onChange={(e) => setCantidadMuniciones(e.target.value)}
+            />
+          </Campo>
+          {Number(cantidadMuniciones) > 0 && (
+            <Campo etiqueta="¿El calibre de la munición coincide con el del arma?">
+              <div className="mt-1 flex gap-3">
+                {[true, false].map((valor) => (
+                  <button
+                    type="button"
+                    key={String(valor)}
+                    onClick={() => setCalibreMunicionCoincide(valor)}
+                    className={`rounded-md border px-3 py-2 font-sans text-sm transition-colors ${
+                      calibreMunicionCoincide === valor
+                        ? "border-acento bg-acento-light text-acento-hover"
+                        : "border-institucional-100 text-institucional-700 hover:bg-institucional-50"
+                    }`}
+                  >
+                    {valor ? "Sí" : "No"}
+                  </button>
+                ))}
+              </div>
+            </Campo>
+          )}
+          <Campo etiqueta="Cantidad de cargadores/proveedores hallados">
+            <input
+              type="number"
+              min={0}
+              className={claseInput}
+              value={cantidadCargadores}
+              onChange={(e) => setCantidadCargadores(e.target.value)}
+            />
           </Campo>
         </div>
       )}

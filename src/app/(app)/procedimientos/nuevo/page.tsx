@@ -6,6 +6,7 @@ import Link from "next/link";
 import { api, ApiError } from "@/lib/api";
 import type { Procedimiento } from "@/lib/tipos";
 import { CampoHora } from "@/components/CampoHora";
+import { DELITOS_SOPORTADOS, DELITO_ESTUPEFACIENTES } from "@/lib/delitos";
 
 /**
  * NOTA: los campos exactos que exige POST /procedimientos todavía no se
@@ -19,7 +20,7 @@ export default function PaginaNuevoProcedimiento() {
   const router = useRouter();
   const [fechaCaptura, setFechaCaptura] = useState("");
   const [horaCaptura, setHoraCaptura] = useState("");
-  const [delito, setDelito] = useState("Tráfico, Fabricación o Porte de Estupefacientes");
+  const [delito, setDelito] = useState<string>(DELITO_ESTUPEFACIENTES);
   const [tipoProcedimiento, setTipoProcedimiento] = useState<"ESTANDAR" | "COMPLEJO">("ESTANDAR");
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -74,15 +75,21 @@ export default function PaginaNuevoProcedimiento() {
           <label className="mb-1 block font-sans text-sm font-medium text-institucional-900">
             Delito <span className="text-estado-error">*</span>
           </label>
-          <input
+          <select
             required
             value={delito}
             onChange={(e) => setDelito(e.target.value)}
-            className="w-full rounded-md border border-institucional-100 px-3 py-2 font-sans text-sm outline-none focus:border-acento"
-          />
+            className="w-full rounded-md border border-institucional-100 bg-white px-3 py-2 font-sans text-sm outline-none focus:border-acento"
+          >
+            {DELITOS_SOPORTADOS.map((d) => (
+              <option key={d} value={d}>
+                {d}
+              </option>
+            ))}
+          </select>
           <p className="mt-1 font-sans text-xs text-institucional-700">
-            El delito determina qué formularios adicionales se habilitarán más adelante (ej.
-            víctimas y testigos).
+            El delito determina qué formularios adicionales se habilitan más adelante (ej. tipo
+            de elementos incautados disponibles).
           </p>
         </div>
 

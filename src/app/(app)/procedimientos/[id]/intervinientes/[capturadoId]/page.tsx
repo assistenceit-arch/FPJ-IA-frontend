@@ -8,6 +8,7 @@ import { useAutoguardado } from "@/lib/useAutoguardado";
 import { IndicadorGuardado } from "@/components/IndicadorGuardado";
 import { soloClaves } from "@/lib/limpiar";
 import { CampoHora } from "@/components/CampoHora";
+import { DELITO_ARMAS } from "@/lib/delitos";
 
 interface Capturado {
   id: string;
@@ -36,6 +37,9 @@ interface Capturado {
   comportamientoAbordaje: string | null;
   identificacionPlena: boolean;
   formaIdentificacion: string | null;
+  // Adenda 2026-08-12: exclusivo del módulo de Porte Ilegal de Armas de
+  // Fuego. PORTE | TENENCIA | NINGUNO | null.
+  tipoPermisoArma: string | null;
 }
 
 interface ContactoNotificacion {
@@ -86,6 +90,7 @@ export default function EditarInterviniente() {
   const [cargando, setCargando] = useState(true);
   const [persona, setPersona] = useState<Capturado | null>(null);
   const [contacto, setContacto] = useState<ContactoNotificacion>(CONTACTO_VACIO);
+  const [delito, setDelito] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
   const [eliminando, setEliminando] = useState(false);
 
@@ -96,14 +101,17 @@ export default function EditarInterviniente() {
       api
         .get<ContactoNotificacion | null>(`/procedimientos/${id}/capturados/${capturadoId}/contacto-notificacion`)
         .catch(() => null),
+      api.get<{ delito: string }>(`/procedimientos/${id}`).catch(() => ({ delito: "" })),
     ])
-      .then(([p, c]) => {
+      .then(([p, c, proc]) => {
         if (cancelado) return;
         setPersona(p);
+        setDelito(proc.delito);
         if (c) {
           setContacto(
             soloClaves(c, [
               "nombre",
+              "parentesco",
               "telefono",
               "comunicacionExitosa",
               "horaComunicacion",
@@ -148,6 +156,7 @@ export default function EditarInterviniente() {
         "comportamientoAbordaje",
         "identificacionPlena",
         "formaIdentificacion",
+        "tipoPermisoArma",
       ]);
       // fechaNacimiento y edadManual son mutuamente excluyentes (opción
       // "No aporta fecha de nacimiento"); nunca se envían los dos juntos.
@@ -486,6 +495,39 @@ export default function EditarInterviniente() {
           </div>
         )}
       </Seccion>
+
+      {delito === DELITO_ARMAS && (
+        <Seccion titulo="Permiso de porte o tenencia">
+          <p className="-mt-2 font-sans text-xs text-institucional-700">
+            Un permiso de Tenencia autoriza mantener el arma en un lugar fijo, pero no autoriza
+            portarla en la vía pública — esa es la diferencia con el Porte.
+          </p>
+          <Campo etiqueta="¿Presentó o manifestó tener permiso?" requerido>
+            <div className="flex flex-wrap gap-3">
+              {(
+                [
+                  ["PORTE", "Porte"],
+                  ["TENENCIA", "Tenencia"],
+                  ["NINGUNO", "Ninguno"],
+                ] as const
+              ).map(([valor, etiqueta]) => (
+                <button
+                  type="button"
+                  key={valor}
+                  onClick={() => set({ tipoPermisoArma: valor })}
+                  className={`rounded-md border px-3 py-2 font-sans text-sm transition-colors ${
+                    p.tipoPermisoArma === valor
+                      ? "border-acento bg-acento-light text-acento-hover"
+                      : "border-institucional-100 text-institucional-700 hover:bg-institucional-50"
+                  }`}
+                >
+                  {etiqueta}
+                </button>
+              ))}
+            </div>
+          </Campo>
+        </Seccion>
+      )}
 
       <div>
         <div className="flex items-center justify-between">
