@@ -201,11 +201,15 @@ function FormularioNuevoElemento({
   const [tipoArma, setTipoArma] = useState<"PISTOLA" | "REVOLVER" | "ESCOPETA" | "FUSIL" | "HECHIZA">("PISTOLA");
   const [modelo, setModelo] = useState("");
   const [calibre, setCalibre] = useState("");
+  const [cachaMaterial, setCachaMaterial] = useState("");
+  const [cachaColor, setCachaColor] = useState("");
   const [serial, setSerial] = useState("");
-  const [serialLegible, setSerialLegible] = useState<boolean | null>(null);
-  const [estadoArma, setEstadoArma] = useState<"BUEN_ESTADO" | "MAL_ESTADO">("BUEN_ESTADO");
+  const [estadoSerial, setEstadoSerial] = useState<
+    "LEGIBLE" | "NO_PRESENTA" | "BORRADO" | "ALTERADO" | "NO_LEGIBLE" | ""
+  >("");
+  const [estadoArma, setEstadoArma] = useState<"BUEN_ESTADO" | "REGULAR_ESTADO" | "MAL_ESTADO">("BUEN_ESTADO");
   const [cantidadMuniciones, setCantidadMuniciones] = useState("");
-  const [calibreMunicionCoincide, setCalibreMunicionCoincide] = useState<boolean | null>(null);
+  const [calibreMunicion, setCalibreMunicion] = useState("");
   const [cantidadCargadores, setCantidadCargadores] = useState("");
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -213,8 +217,8 @@ function FormularioNuevoElemento({
   async function manejarEnvio(evento: FormEvent) {
     evento.preventDefault();
     setError(null);
-    if (tipoElemento === "ARMA" && serialLegible === null) {
-      setError("Indica si el serial del arma es legible o no — esta verificación es obligatoria.");
+    if (tipoElemento === "ARMA" && estadoSerial === "") {
+      setError("Indica el estado del serial del arma — esta verificación es obligatoria.");
       return;
     }
     setCargando(true);
@@ -243,12 +247,13 @@ function FormularioNuevoElemento({
           modelo: modelo || undefined,
           calibre: calibre || undefined,
           color: color || undefined,
-          serial: serial || undefined,
-          serialLegible,
+          cachaMaterial: cachaMaterial || undefined,
+          cachaColor: cachaColor || undefined,
+          serial: estadoSerial === "LEGIBLE" ? serial || undefined : undefined,
+          estadoSerial,
           estadoArma,
           cantidadMuniciones: cantidadMuniciones ? Number(cantidadMuniciones) : undefined,
-          calibreMunicionCoincide:
-            calibreMunicionCoincide === null ? undefined : calibreMunicionCoincide,
+          calibreMunicion: calibreMunicion || undefined,
           cantidadCargadores: cantidadCargadores ? Number(cantidadCargadores) : undefined,
         });
       } else {
@@ -399,6 +404,7 @@ function FormularioNuevoElemento({
               onChange={(e) => setEstadoArma(e.target.value as typeof estadoArma)}
             >
               <option value="BUEN_ESTADO">En buen estado</option>
+              <option value="REGULAR_ESTADO">En regular estado</option>
               <option value="MAL_ESTADO">En mal estado</option>
             </select>
           </Campo>
@@ -419,32 +425,38 @@ function FormularioNuevoElemento({
           <Campo etiqueta="Color">
             <input className={claseInput} value={color} onChange={(e) => setColor(e.target.value)} />
           </Campo>
-          <Campo etiqueta="Serial">
+          <Campo etiqueta="Material de la cacha o empuñadura">
             <input
               className={claseInput}
-              placeholder="Si es legible, transcríbelo aquí"
-              value={serial}
-              onChange={(e) => setSerial(e.target.value)}
+              placeholder="Ej. madera, plástica…"
+              value={cachaMaterial}
+              onChange={(e) => setCachaMaterial(e.target.value)}
             />
           </Campo>
-          <Campo etiqueta="¿El serial es legible?" requerido>
-            <div className="mt-1 flex gap-3">
-              {[true, false].map((valor) => (
-                <button
-                  type="button"
-                  key={String(valor)}
-                  onClick={() => setSerialLegible(valor)}
-                  className={`rounded-md border px-3 py-2 font-sans text-sm transition-colors ${
-                    serialLegible === valor
-                      ? "border-acento bg-acento-light text-acento-hover"
-                      : "border-institucional-100 text-institucional-700 hover:bg-institucional-50"
-                  }`}
-                >
-                  {valor ? "Sí, legible" : "No legible / borrado o alterado"}
-                </button>
-              ))}
-            </div>
+          <Campo etiqueta="Color de la cacha o empuñadura">
+            <input className={claseInput} value={cachaColor} onChange={(e) => setCachaColor(e.target.value)} />
           </Campo>
+          <Campo etiqueta="Estado del serial" requerido>
+            <select
+              className={claseInput}
+              value={estadoSerial}
+              onChange={(e) => setEstadoSerial(e.target.value as typeof estadoSerial)}
+            >
+              <option value="" disabled>
+                Selecciona una opción…
+              </option>
+              <option value="LEGIBLE">Legible</option>
+              <option value="NO_PRESENTA">No presenta</option>
+              <option value="BORRADO">Borrado</option>
+              <option value="ALTERADO">Alterado</option>
+              <option value="NO_LEGIBLE">No legible</option>
+            </select>
+          </Campo>
+          {estadoSerial === "LEGIBLE" && (
+            <Campo etiqueta="Número de serial" requerido>
+              <input className={claseInput} value={serial} onChange={(e) => setSerial(e.target.value)} />
+            </Campo>
+          )}
           <Campo etiqueta="Cantidad de municiones halladas">
             <input
               type="number"
@@ -455,23 +467,13 @@ function FormularioNuevoElemento({
             />
           </Campo>
           {Number(cantidadMuniciones) > 0 && (
-            <Campo etiqueta="¿El calibre de la munición coincide con el del arma?">
-              <div className="mt-1 flex gap-3">
-                {[true, false].map((valor) => (
-                  <button
-                    type="button"
-                    key={String(valor)}
-                    onClick={() => setCalibreMunicionCoincide(valor)}
-                    className={`rounded-md border px-3 py-2 font-sans text-sm transition-colors ${
-                      calibreMunicionCoincide === valor
-                        ? "border-acento bg-acento-light text-acento-hover"
-                        : "border-institucional-100 text-institucional-700 hover:bg-institucional-50"
-                    }`}
-                  >
-                    {valor ? "Sí" : "No"}
-                  </button>
-                ))}
-              </div>
+            <Campo etiqueta="Calibre de la munición">
+              <input
+                className={claseInput}
+                placeholder="No asumas que es el mismo del arma — pregúntalo"
+                value={calibreMunicion}
+                onChange={(e) => setCalibreMunicion(e.target.value)}
+              />
             </Campo>
           )}
           <Campo etiqueta="Cantidad de cargadores/proveedores hallados">
@@ -479,6 +481,7 @@ function FormularioNuevoElemento({
               type="number"
               min={0}
               className={claseInput}
+              placeholder="Ej. no aplica a revólveres"
               value={cantidadCargadores}
               onChange={(e) => setCantidadCargadores(e.target.value)}
             />

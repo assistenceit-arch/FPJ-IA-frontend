@@ -40,6 +40,7 @@ interface ProcedimientoAdmin {
   tipoProcedimiento: string;
   estado: string;
   exoneradoPago: boolean;
+  edicionDesbloqueada: boolean;
   fechaCreacion: string;
   usuario: { nombres: string; apellidos: string | null; correo: string };
   pago: { estadoPago: string } | null;
@@ -171,6 +172,7 @@ export default function PanelAdministracion() {
   const [totalPaginasProcedimientos, setTotalPaginasProcedimientos] = useState(1);
   const [buscando, setBuscando] = useState(false);
   const [exonerando, setExonerando] = useState<string | null>(null);
+  const [desbloqueando, setDesbloqueando] = useState<string | null>(null);
   const [eliminandoProcedimiento, setEliminandoProcedimiento] = useState<string | null>(null);
 
   // Usuarios / roles / bloqueo
@@ -332,6 +334,30 @@ export default function PanelAdministracion() {
       setError(err instanceof ApiError ? err.message : "No fue posible actualizar la exoneración.");
     } finally {
       setExonerando(null);
+    }
+  }
+
+  async function alternarDesbloqueoEdicion(procedimiento: ProcedimientoAdmin) {
+    const activando = !procedimiento.edicionDesbloqueada;
+    if (
+      activando &&
+      !window.confirm(
+        `¿Desbloquear la edición del procedimiento ${procedimiento.numeroInterno ?? procedimiento.id}? El funcionario podrá modificar la información base y regenerar documentos ya generados. Recuerda volver a bloquearlo cuando termine de corregir.`,
+      )
+    ) {
+      return;
+    }
+    setError(null);
+    setDesbloqueando(procedimiento.id);
+    try {
+      await api.patch(`/admin/procedimientos/${procedimiento.id}/desbloqueo-edicion`, {
+        desbloqueada: activando,
+      });
+      await buscarProcedimientos(undefined, paginaProcedimientos);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "No fue posible actualizar el desbloqueo de edición.");
+    } finally {
+      setDesbloqueando(null);
     }
   }
 
@@ -749,6 +775,11 @@ export default function PanelAdministracion() {
                         Exonerado
                       </span>
                     )}
+                    {p.edicionDesbloqueada && (
+                      <span className="ml-2 rounded-full bg-estado-error/15 px-2 py-0.5 text-xs font-semibold text-estado-error">
+                        Edición desbloqueada
+                      </span>
+                    )}
                   </p>
                   <p className="font-sans text-xs text-institucional-700">
                     {p.usuario.nombres} {p.usuario.apellidos} · pago:{" "}
@@ -777,6 +808,22 @@ export default function PanelAdministracion() {
                       : p.exoneradoPago
                         ? "Quitar exoneración"
                         : "Exonerar de pago"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => alternarDesbloqueoEdicion(p)}
+                    disabled={desbloqueando === p.id}
+                    className={`rounded-md px-3 py-1.5 font-sans text-xs font-semibold shadow-sm transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+                      p.edicionDesbloqueada
+                        ? "border border-institucional-100 text-institucional-800 hover:bg-institucional-50"
+                        : "bg-acento text-white hover:bg-acento-hover"
+                    }`}
+                  >
+                    {desbloqueando === p.id
+                      ? "Guardando…"
+                      : p.edicionDesbloqueada
+                        ? "Bloquear edición"
+                        : "Desbloquear edición"}
                   </button>
                   <button
                     type="button"
