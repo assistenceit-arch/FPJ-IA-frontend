@@ -22,6 +22,11 @@ interface Elemento {
 const claseInput =
   "block w-full rounded-md border border-institucional-100 bg-white px-3 py-2 font-sans text-sm text-institucional-950 outline-none focus:border-acento";
 
+// Adenda 2026-08-14: valor especial para el selector de "Interviniente"
+// del formulario -- cuando se elige, el elemento se guarda sin
+// capturadoId (ver ElementosColectivosController en el backend).
+const SIN_INDIVIDUALIZAR = "__SIN_INDIVIDUALIZAR__";
+
 function Campo({ etiqueta, requerido, children }: { etiqueta: string; requerido?: boolean; children: React.ReactNode }) {
   return (
     <label className="block">
@@ -38,18 +43,25 @@ export default function BloqueElementos() {
   const { id } = useParams<{ id: string }>();
   const [intervinientes, setIntervinientes] = useState<CapturadoResumen[]>([]);
   const [elementosPorPersona, setElementosPorPersona] = useState<Record<string, Elemento[]>>({});
+  // Adenda 2026-08-14: elementos "sin individualizar" -- hallados en un
+  // lugar común (ej. interior de un vehículo con varios ocupantes) sin
+  // poder atribuirse a una persona específica, pero que dieron lugar a
+  // la captura de todos los intervinientes del procedimiento.
+  const [elementosColectivos, setElementosColectivos] = useState<Elemento[]>([]);
   const [delito, setDelito] = useState<string>("");
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
 
   async function cargarTodo() {
-    const [personas, procedimiento] = await Promise.all([
+    const [personas, procedimiento, colectivos] = await Promise.all([
       api.get<CapturadoResumen[]>(`/procedimientos/${id}/capturados`),
       api.get<{ delito: string }>(`/procedimientos/${id}`),
+      api.get<Elemento[]>(`/procedimientos/${id}/elementos-colectivos`),
     ]);
     setIntervinientes(personas);
     setDelito(procedimiento.delito);
+    setElementosColectivos(colectivos);
     const listas = await Promise.all(
       personas.map((p) => api.get<Elemento[]>(`/procedimientos/${id}/capturados/${p.id}/elementos`)),
     );
@@ -76,6 +88,16 @@ export default function BloqueElementos() {
     }
   }
 
+  async function eliminarElementoColectivo(elementoId: string) {
+    if (!confirm("¿Eliminar este elemento colectivo?")) return;
+    try {
+      await api.delete(`/procedimientos/${id}/elementos-colectivos/${elementoId}`);
+      await cargarTodo();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "No fue posible eliminar el elemento.");
+    }
+  }
+
   if (cargando) return <p className="font-sans text-sm text-institucional-700">Cargando…</p>;
 
   return (
@@ -84,7 +106,8 @@ export default function BloqueElementos() {
         <div>
           <h1 className="font-display text-2xl text-institucional-950">4. Elementos incautados</h1>
           <p className="mt-1 font-sans text-sm text-institucional-700">
-            Cada elemento debe asociarse a un interviniente específico.
+            Cada elemento se asocia a un interviniente específico, o queda "sin individualizar"
+            cuando no es posible atribuirlo a uno en particular (ej. hallado en un lugar común).
           </p>
         </div>
         {intervinientes.length > 0 && (
@@ -129,6 +152,39 @@ export default function BloqueElementos() {
       )}
 
       <div className="mt-6 space-y-6">
+        {elementosColectivos.length > 0 && (
+          <div>
+            <h2 className="font-display text-lg text-institucional-950">
+              Sin individualizar{" "}
+              <span className="ml-1 rounded-full bg-acento/15 px-2 py-0.5 align-middle font-sans text-xs font-semibold text-acento">
+                colectivo
+              </span>
+            </h2>
+            <p className="mt-1 font-sans text-xs text-institucional-700">
+              Hallados en un lugar común (ej. interior de un vehículo), sin poder atribuirse a uno
+              de los intervinientes en particular.
+            </p>
+            <ul className="mt-2 divide-y divide-institucional-100 rounded-lg border border-institucional-100 bg-white shadow-sm">
+              {elementosColectivos.map((el) => (
+                <li key={el.id} className="flex items-center justify-between gap-4 px-5 py-3">
+                  <div>
+                    <p className="font-sans text-xs font-semibold uppercase tracking-wide text-institucional-700">
+                      {el.tipoElemento}
+                    </p>
+                    <p className="mt-0.5 font-sans text-sm text-institucional-950">{el.descripcionBase}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => eliminarElementoColectivo(el.id)}
+                    className="shrink-0 font-sans text-xs text-estado-error hover:underline"
+                  >
+                    Eliminar
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
         {intervinientes.map((persona) => {
           const elementos = elementosPorPersona[persona.id] ?? [];
           return (
@@ -260,7 +316,11 @@ function FormularioNuevoElemento({
         Object.assign(cuerpo, { descripcionManual });
       }
 
-      await api.post(`/procedimientos/${procedimientoId}/capturados/${capturadoId}/elementos`, cuerpo);
+      const ruta =
+        capturadoId === SIN_INDIVIDUALIZAR
+          ? `/procedimientos/${procedimientoId}/elementos-colectivos`
+          : `/procedimientos/${procedimientoId}/capturados/${capturadoId}/elementos`;
+      await api.post(ruta, cuerpo);
       onCreado();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "No fue posible registrar el elemento.");
@@ -282,6 +342,7 @@ function FormularioNuevoElemento({
                 {p.primerNombre} {p.primerApellido}
               </option>
             ))}
+            <option value={SIN_INDIVIDUALIZAR}>— Sin individualizar (colectivo) —</option>
           </select>
         </Campo>
         <Campo etiqueta="Tipo de elemento" requerido>

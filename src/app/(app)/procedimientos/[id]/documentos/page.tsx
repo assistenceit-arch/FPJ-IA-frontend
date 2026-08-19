@@ -14,13 +14,13 @@ interface CapturadoResumen {
 
 interface ElementoResumen {
   id: string;
-  tipoElemento: "SUSTANCIA" | "DINERO" | "CELULAR" | "OTRO";
+  tipoElemento: "SUSTANCIA" | "DINERO" | "CELULAR" | "ARMA" | "OTRO";
   descripcionBase: string;
 }
 
 interface DocumentoGenerado {
   id: string;
-  tipoDocumento: string; // FPJ5 | FPJ6 | ACTA | FPJ7 | FPJ8
+  tipoDocumento: string; // FPJ5 | FPJ6 | ACTA | ACTA_COLECTIVA | FPJ7 | FPJ8
   capturadoId: string | null;
   elementoId: string | null;
   fechaGeneracion: string;
@@ -35,11 +35,13 @@ const ETIQUETA_TIPO_ELEMENTO: Record<ElementoResumen["tipoElemento"], string> = 
   SUSTANCIA: "Sustancia",
   DINERO: "Dinero",
   CELULAR: "Celular",
+  ARMA: "Arma de fuego",
   OTRO: "Otro",
 };
 
 const ETIQUETA_TIPO_DOCUMENTO: Record<string, string> = {
   ACTA: "Acta de Incautación",
+  ACTA_COLECTIVA: "Acta de Incautación colectiva",
   FPJ6: "FPJ-6 — Acta de Derechos",
   FPJ5: "FPJ-5 — Informe de Captura",
   FPJ7: "FPJ-7 — Rótulo EMP/EF",
@@ -132,6 +134,8 @@ export default function BloqueDocumentos() {
   const { id } = useParams<{ id: string }>();
   const [intervinientes, setIntervinientes] = useState<CapturadoResumen[]>([]);
   const [elementosPorPersona, setElementosPorPersona] = useState<Record<string, ElementoResumen[]>>({});
+  // Adenda 2026-08-14: elementos "sin individualizar" -- ver Bloque 4.
+  const [elementosColectivos, setElementosColectivos] = useState<ElementoResumen[]>([]);
   const [generados, setGenerados] = useState<DocumentoGenerado[]>([]);
   const [pago, setPago] = useState<Pago | null>(null);
   const [edicionDesbloqueada, setEdicionDesbloqueada] = useState(false);
@@ -147,16 +151,18 @@ export default function BloqueDocumentos() {
   const [generandoFpj5, setGenerandoFpj5] = useState(false);
 
   async function cargarTodo() {
-    const [personas, docs, estadoPago, procedimiento] = await Promise.all([
+    const [personas, docs, estadoPago, procedimiento, colectivos] = await Promise.all([
       api.get<CapturadoResumen[]>(`/procedimientos/${id}/capturados`),
       api.get<DocumentoGenerado[]>(`/procedimientos/${id}/documentos`),
       api.get<Pago | null>(`/procedimientos/${id}/pago`).catch(() => null),
       api.get<{ edicionDesbloqueada: boolean }>(`/procedimientos/${id}`).catch(() => null),
+      api.get<ElementoResumen[]>(`/procedimientos/${id}/elementos-colectivos`).catch(() => []),
     ]);
     setIntervinientes(personas);
     setGenerados(docs);
     setPago(estadoPago);
     setEdicionDesbloqueada(procedimiento?.edicionDesbloqueada ?? false);
+    setElementosColectivos(colectivos);
     const listas = await Promise.all(
       personas.map((p) => api.get<ElementoResumen[]>(`/procedimientos/${id}/capturados/${p.id}/elementos`)),
     );
@@ -196,6 +202,24 @@ export default function BloqueDocumentos() {
       );
       await cargarTodo();
       await descargar(doc.id, nombreArchivo(tipoDocumento, `${capturado.primerNombre}_${capturado.primerApellido}`));
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "No fue posible generar el documento.");
+    } finally {
+      setBotonCargando(null);
+    }
+  }
+
+  // Adenda 2026-08-14: Acta de Incautación colectiva -- un solo
+  // documento por procedimiento (igual que el FPJ-5), no por persona.
+  async function generarActaColectiva() {
+    setBotonCargando("ACTA_COLECTIVA");
+    setError(null);
+    try {
+      const doc = await api.post<DocumentoGenerado>(
+        `/procedimientos/${id}/documentos/acta-incautacion-colectiva`,
+      );
+      await cargarTodo();
+      await descargar(doc.id, nombreArchivo("ACTA_COLECTIVA"));
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "No fue posible generar el documento.");
     } finally {
@@ -285,9 +309,10 @@ export default function BloqueDocumentos() {
 
   if (cargando) return <p className="font-sans text-sm text-institucional-700">Cargando…</p>;
 
-  const elementosConDueno = intervinientes.flatMap((p) =>
-    (elementosPorPersona[p.id] ?? []).map((e) => ({ elemento: e, persona: p })),
-  );
+  const elementosConDueno: { elemento: ElementoResumen; persona: CapturadoResumen | null }[] = [
+    ...intervinientes.flatMap((p) => (elementosPorPersona[p.id] ?? []).map((e) => ({ elemento: e, persona: p }))),
+    ...elementosColectivos.map((e) => ({ elemento: e, persona: null })),
+  ];
 
   return (
     <div className="space-y-6">
@@ -335,6 +360,27 @@ export default function BloqueDocumentos() {
           ))
         )}
       </Seccion>
+
+      {elementosColectivos.length > 0 && (
+        <Seccion
+          titulo="Acta de Incautación colectiva"
+          descripcion="Un solo documento por procedimiento, para los elementos sin individualizar — lista a todos los intervinientes como firmantes."
+        >
+          <div className="flex items-center justify-between rounded-md border border-institucional-100 px-3 py-2">
+            <span className="font-sans text-sm text-institucional-950">
+              {elementosColectivos.length} elemento{elementosColectivos.length === 1 ? "" : "s"} sin
+              individualizar
+            </span>
+            <AccionDocumento
+              edicionDesbloqueada={edicionDesbloqueada}
+              generado={buscarGenerado("ACTA_COLECTIVA")}
+              cargando={botonCargando === "ACTA_COLECTIVA"}
+              onGenerar={generarActaColectiva}
+              onDescargar={(docId) => descargar(docId, nombreArchivo("ACTA_COLECTIVA"))}
+            />
+          </div>
+        </Seccion>
+      )}
 
       <Seccion titulo="FPJ-6 — Acta de Derechos" descripcion="Uno por cada interviniente (Capturado o Aprehendido).">
         {intervinientes.length === 0 ? (
@@ -427,17 +473,25 @@ export default function BloqueDocumentos() {
             <div key={elemento.id} className="flex items-center justify-between rounded-md border border-institucional-100 px-3 py-2">
               <span className="font-sans text-sm text-institucional-950">
                 {ETIQUETA_TIPO_ELEMENTO[elemento.tipoElemento]} — {elemento.descripcionBase}
-                <span className="text-institucional-700"> ({persona.primerNombre} {persona.primerApellido})</span>
+                <span className="text-institucional-700">
+                  {" "}
+                  ({persona ? `${persona.primerNombre} ${persona.primerApellido}` : "sin individualizar"})
+                </span>
               </span>
               <AccionDocumento
                 edicionDesbloqueada={edicionDesbloqueada}
                 generado={buscarGenerado("FPJ7", { elementoId: elemento.id })}
                 cargando={botonCargando === `FPJ7-${elemento.id}`}
                 onGenerar={() =>
-                  generarPorElemento("fpj7-rotulo", "FPJ7", elemento, `${persona.primerNombre}_${persona.primerApellido}`)
+                  generarPorElemento(
+                    "fpj7-rotulo",
+                    "FPJ7",
+                    elemento,
+                    persona ? `${persona.primerNombre}_${persona.primerApellido}` : "sin_individualizar",
+                  )
                 }
                 onDescargar={(docId) =>
-                  descargar(docId, nombreArchivo("FPJ7", `${persona.primerNombre}_${elemento.descripcionBase}`))
+                  descargar(docId, nombreArchivo("FPJ7", `${persona?.primerNombre ?? "colectivo"}_${elemento.descripcionBase}`))
                 }
               />
             </div>
@@ -453,17 +507,25 @@ export default function BloqueDocumentos() {
             <div key={elemento.id} className="flex items-center justify-between rounded-md border border-institucional-100 px-3 py-2">
               <span className="font-sans text-sm text-institucional-950">
                 {ETIQUETA_TIPO_ELEMENTO[elemento.tipoElemento]} — {elemento.descripcionBase}
-                <span className="text-institucional-700"> ({persona.primerNombre} {persona.primerApellido})</span>
+                <span className="text-institucional-700">
+                  {" "}
+                  ({persona ? `${persona.primerNombre} ${persona.primerApellido}` : "sin individualizar"})
+                </span>
               </span>
               <AccionDocumento
                 edicionDesbloqueada={edicionDesbloqueada}
                 generado={buscarGenerado("FPJ8", { elementoId: elemento.id })}
                 cargando={botonCargando === `FPJ8-${elemento.id}`}
                 onGenerar={() =>
-                  generarPorElemento("fpj8-cadena-custodia", "FPJ8", elemento, `${persona.primerNombre}_${persona.primerApellido}`)
+                  generarPorElemento(
+                    "fpj8-cadena-custodia",
+                    "FPJ8",
+                    elemento,
+                    persona ? `${persona.primerNombre}_${persona.primerApellido}` : "sin_individualizar",
+                  )
                 }
                 onDescargar={(docId) =>
-                  descargar(docId, nombreArchivo("FPJ8", `${persona.primerNombre}_${elemento.descripcionBase}`))
+                  descargar(docId, nombreArchivo("FPJ8", `${persona?.primerNombre ?? "colectivo"}_${elemento.descripcionBase}`))
                 }
               />
             </div>
