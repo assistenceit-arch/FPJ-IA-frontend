@@ -13,6 +13,7 @@ export interface Procedimiento {
   observacionesGenerales: string | null;
   activo: boolean;
   exoneradoPago: boolean;
+  edicionDesbloqueada: boolean;
 }
 
 export interface FuncionarioActuante {

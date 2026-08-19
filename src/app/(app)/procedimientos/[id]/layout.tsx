@@ -48,6 +48,7 @@ export default function LayoutProcedimiento({ children }: { children: React.Reac
   const { id } = useParams<{ id: string }>();
   const [bloques, setBloques] = useState<ItemBloque[] | null>(null);
   const [bloqueado, setBloqueado] = useState(false);
+  const [edicionDesbloqueada, setEdicionDesbloqueada] = useState(false);
   const [bloqueadoPorPagoComplejo, setBloqueadoPorPagoComplejo] = useState(false);
 
   useEffect(() => {
@@ -88,7 +89,12 @@ export default function LayoutProcedimiento({ children }: { children: React.Reac
       // Adenda 2026-08-06: en cuanto hay al menos un documento generado,
       // el backend congela la edición de todos los datos base del
       // procedimiento (ver ProcedimientoAccesoService.verificarNoBloqueado).
-      setBloqueado((documentos?.length ?? 0) > 0);
+      // Adenda 2026-08-13: salvo que un administrador haya desbloqueado
+      // puntualmente la edición (procedimiento.edicionDesbloqueada) --
+      // en ese caso el backend ya no exige el bloqueo, así que este
+      // banner tampoco debe mostrarlo como bloqueado.
+      setBloqueado((documentos?.length ?? 0) > 0 && !procedimiento?.edicionDesbloqueada);
+      setEdicionDesbloqueada(procedimiento?.edicionDesbloqueada ?? false);
 
       // Adenda 2026-08-08: en un procedimiento COMPLEJO, los Bloques 1 a
       // 7 quedan deshabilitados hasta que un administrador verifique el
@@ -216,6 +222,14 @@ export default function LayoutProcedimiento({ children }: { children: React.Reac
             🔒 Este procedimiento ya generó documentos oficiales y quedó <strong>bloqueado para edición</strong>.
             Los datos de los Bloques 1 a 6 ya no se pueden modificar — solo puedes descargar los
             documentos existentes en el Bloque 7.
+          </div>
+        )}
+        {edicionDesbloqueada && (
+          <div className="mb-4 rounded-md border border-estado-error/30 bg-estado-error/10 px-4 py-3 font-sans text-sm text-institucional-900">
+            🔓 Un administrador desbloqueó temporalmente la edición de este procedimiento. Puedes
+            corregir la información de los Bloques 1 a 6, eliminar intervinientes o elementos, y
+            regenerar los documentos del Bloque 7 con la información corregida. Avisa al
+            administrador cuando termines para que vuelva a bloquearlo.
           </div>
         )}
         {children}

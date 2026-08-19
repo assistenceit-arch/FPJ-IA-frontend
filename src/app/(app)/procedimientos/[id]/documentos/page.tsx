@@ -88,11 +88,13 @@ function BotonGenerar({
 function AccionDocumento({
   generado,
   cargando,
+  edicionDesbloqueada,
   onGenerar,
   onDescargar,
 }: {
   generado?: { id: string };
   cargando: boolean;
+  edicionDesbloqueada: boolean;
   onGenerar: () => void;
   onDescargar: (documentoId: string) => void;
 }) {
@@ -109,6 +111,17 @@ function AccionDocumento({
         >
           Descargar
         </button>
+        {edicionDesbloqueada && (
+          <button
+            type="button"
+            onClick={onGenerar}
+            disabled={cargando}
+            className="rounded-md bg-estado-error px-3 py-1.5 font-sans text-xs font-semibold text-white shadow-sm transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+            title="Un administrador desbloqueó la edición de este procedimiento"
+          >
+            {cargando ? "Regenerando…" : "Regenerar"}
+          </button>
+        )}
       </div>
     );
   }
@@ -121,6 +134,7 @@ export default function BloqueDocumentos() {
   const [elementosPorPersona, setElementosPorPersona] = useState<Record<string, ElementoResumen[]>>({});
   const [generados, setGenerados] = useState<DocumentoGenerado[]>([]);
   const [pago, setPago] = useState<Pago | null>(null);
+  const [edicionDesbloqueada, setEdicionDesbloqueada] = useState(false);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [botonCargando, setBotonCargando] = useState<string | null>(null);
@@ -133,14 +147,16 @@ export default function BloqueDocumentos() {
   const [generandoFpj5, setGenerandoFpj5] = useState(false);
 
   async function cargarTodo() {
-    const [personas, docs, estadoPago] = await Promise.all([
+    const [personas, docs, estadoPago, procedimiento] = await Promise.all([
       api.get<CapturadoResumen[]>(`/procedimientos/${id}/capturados`),
       api.get<DocumentoGenerado[]>(`/procedimientos/${id}/documentos`),
       api.get<Pago | null>(`/procedimientos/${id}/pago`).catch(() => null),
+      api.get<{ edicionDesbloqueada: boolean }>(`/procedimientos/${id}`).catch(() => null),
     ]);
     setIntervinientes(personas);
     setGenerados(docs);
     setPago(estadoPago);
+    setEdicionDesbloqueada(procedimiento?.edicionDesbloqueada ?? false);
     const listas = await Promise.all(
       personas.map((p) => api.get<ElementoResumen[]>(`/procedimientos/${id}/capturados/${p.id}/elementos`)),
     );
@@ -309,6 +325,7 @@ export default function BloqueDocumentos() {
                 {p.primerNombre} {p.primerApellido}
               </span>
               <AccionDocumento
+                edicionDesbloqueada={edicionDesbloqueada}
                 generado={buscarGenerado("ACTA", { capturadoId: p.id })}
                 cargando={botonCargando === `ACTA-${p.id}`}
                 onGenerar={() => generarPorCapturado("acta-incautacion", "ACTA", p)}
@@ -329,6 +346,7 @@ export default function BloqueDocumentos() {
                 {p.primerNombre} {p.primerApellido}
               </span>
               <AccionDocumento
+                edicionDesbloqueada={edicionDesbloqueada}
                 generado={buscarGenerado("FPJ6", { capturadoId: p.id })}
                 cargando={botonCargando === `FPJ6-${p.id}`}
                 onGenerar={() => generarPorCapturado("fpj6-acta-derechos", "FPJ6", p)}
@@ -340,11 +358,12 @@ export default function BloqueDocumentos() {
       </Seccion>
 
       <Seccion titulo="FPJ-5 — Informe de Captura" descripcion="Uno solo por todo el procedimiento. La narración de los hechos se redacta automáticamente; si al sistema le falta información, te lo va a preguntar aquí mismo antes de generar el documento.">
-        {buscarGenerado("FPJ5") ? (
+        {buscarGenerado("FPJ5") && !generandoFpj5 ? (
           <AccionDocumento
+            edicionDesbloqueada={edicionDesbloqueada}
             generado={buscarGenerado("FPJ5")}
             cargando={false}
-            onGenerar={() => {}}
+            onGenerar={iniciarFpj5}
             onDescargar={(docId) => descargar(docId, nombreArchivo("FPJ5"))}
           />
         ) : (
@@ -411,6 +430,7 @@ export default function BloqueDocumentos() {
                 <span className="text-institucional-700"> ({persona.primerNombre} {persona.primerApellido})</span>
               </span>
               <AccionDocumento
+                edicionDesbloqueada={edicionDesbloqueada}
                 generado={buscarGenerado("FPJ7", { elementoId: elemento.id })}
                 cargando={botonCargando === `FPJ7-${elemento.id}`}
                 onGenerar={() =>
@@ -436,6 +456,7 @@ export default function BloqueDocumentos() {
                 <span className="text-institucional-700"> ({persona.primerNombre} {persona.primerApellido})</span>
               </span>
               <AccionDocumento
+                edicionDesbloqueada={edicionDesbloqueada}
                 generado={buscarGenerado("FPJ8", { elementoId: elemento.id })}
                 cargando={botonCargando === `FPJ8-${elemento.id}`}
                 onGenerar={() =>
