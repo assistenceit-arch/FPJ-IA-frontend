@@ -68,6 +68,10 @@ export interface ActuacionesProcedimiento {
   circunstanciaRelevante?: string;
   tieneObservacionAdicional?: boolean;
   observacionAdicional?: string;
+  // Adenda 2026-08-20: existencia de testigos de los hechos (Sección 5
+  // del FPJ 5). Si es true, se diligencia el listado de Testigo por
+  // separado (misma dinámica que Intervinientes).
+  existenTestigos?: boolean;
 }
 
 export const CLAVES_ACTUACIONES = [
@@ -85,6 +89,7 @@ export const CLAVES_ACTUACIONES = [
   "circunstanciaRelevante",
   "tieneObservacionAdicional",
   "observacionAdicional",
+  "existenTestigos",
 ] as const;
 
 export const ACTUACIONES_VACIAS: ActuacionesProcedimiento = {
@@ -94,3 +99,27 @@ export const ACTUACIONES_VACIAS: ActuacionesProcedimiento = {
   comprendeDerechos: false,
   autoridadReceptora: "",
 };
+
+// Adenda 2026-08-20: Testigos de los hechos (Sección 5 del FPJ 5), núcleo
+// común transversal a todos los delitos. Misma dinámica que Capturado.
+export interface Testigo {
+  id: string;
+  primerNombre: string;
+  segundoNombre: string | null;
+  primerApellido: string;
+  segundoApellido: string | null;
+  tipoDocumento: string | null;
+  numeroDocumento: string | null;
+  expedicionDocumento: string | null;
+  fechaNacimiento: string | null;
+  edad: number | null;
+  genero: string | null;
+  paisNacimiento: string | null;
+  departamentoNacimiento: string | null;
+  municipioNacimiento: string | null;
+  profesionOficio: string | null;
+  estadoCivil: string | null;
+  direccion: string | null;
+  telefono: string | null;
+  correo: string | null;
+}

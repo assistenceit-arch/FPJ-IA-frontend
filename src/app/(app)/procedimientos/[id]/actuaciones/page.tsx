@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import Link from "next/link";
 import { useParams } from "next/navigation";
 import { api, ApiError } from "@/lib/api";
 import { useAutoguardado } from "@/lib/useAutoguardado";
@@ -283,6 +284,7 @@ export default function BloqueActuaciones() {
   const [datos, setDatos] = useState<ActuacionesProcedimiento>(ACTUACIONES_VACIAS);
   const [procedimiento, setProcedimiento] = useState<Procedimiento | null>(null);
   const [intervinientes, setIntervinientes] = useState<IntervinienteResumen[]>([]);
+  const [testigosCount, setTestigosCount] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -291,11 +293,19 @@ export default function BloqueActuaciones() {
       api.get<ActuacionesProcedimiento | null>(`/procedimientos/${id}/actuaciones-procedimiento`).catch(() => null),
       api.get<Procedimiento>(`/procedimientos/${id}`),
       api.get<IntervinienteResumen[]>(`/procedimientos/${id}/capturados`).catch(() => []),
-    ]).then(([a, p, capturados]) => {
+      api.get<unknown[]>(`/procedimientos/${id}/testigos`).catch(() => null),
+    ]).then(([a, p, capturados, testigos]) => {
       if (cancelado) return;
-      if (a) setDatos({ ...ACTUACIONES_VACIAS, ...soloClaves(a, CLAVES_ACTUACIONES) });
+      if (a) {
+        setDatos({
+          ...ACTUACIONES_VACIAS,
+          ...soloClaves(a, CLAVES_ACTUACIONES),
+          demoraExistente: a.demoraExistente,
+        });
+      }
       setProcedimiento(p);
       setIntervinientes(capturados);
+      setTestigosCount(testigos?.length ?? null);
       setCargando(false);
     });
     return () => {
@@ -312,8 +322,22 @@ export default function BloqueActuaciones() {
       // relato del Bloque 6, que comparte este mismo registro), y el
       // trabajo se perdía al salir o recargar la página.
       try {
-        await api.put(`/procedimientos/${id}/actuaciones-procedimiento`, valor);
+        // demoraExistente es un campo calculado por el backend (no se
+        // persiste ni se acepta del cliente -- ver GuardarActuacionesDto);
+        // se excluye del payload con soloClaves para no violar
+        // forbidNonWhitelisted, aunque viva en el mismo estado `datos`.
+        const payload = soloClaves(valor, CLAVES_ACTUACIONES);
+        const resultado = await api.put<ActuacionesProcedimiento>(
+          `/procedimientos/${id}/actuaciones-procedimiento`,
+          payload,
+        );
         setError(null);
+        // La hora de derechos sincroniza la hora de captura (ver backend),
+        // lo que también puede cambiar si hay demora -- se refleja aquí
+        // sin esperar a un refresco completo de la página.
+        if (resultado.demoraExistente !== valor.demoraExistente) {
+          setDatos((actual) => ({ ...actual, demoraExistente: resultado.demoraExistente }));
+        }
       } catch (err) {
         setError(err instanceof ApiError ? err.message : "No fue posible guardar las actuaciones.");
         throw err;
@@ -332,6 +356,17 @@ export default function BloqueActuaciones() {
         fechaDisposicion: p.fechaDisposicion,
         horaDisposicion: p.horaDisposicion,
       });
+      // Adenda 2026-08-20: demoraExistente se recalcula en el backend a
+      // partir de la captura y la puesta a disposición vigentes -- se
+      // refresca aquí para que el campo de justificación (condicionado a
+      // este valor) se active/desactive sin esperar a recargar la
+      // página, sin importar cuál de los dos bloques se edite primero.
+      const actuacionesActualizadas = await api
+        .get<ActuacionesProcedimiento | null>(`/procedimientos/${id}/actuaciones-procedimiento`)
+        .catch(() => null);
+      if (actuacionesActualizadas) {
+        setDatos((actual) => ({ ...actual, demoraExistente: actuacionesActualizadas.demoraExistente }));
+      }
     },
     [id],
   );
@@ -395,6 +430,34 @@ export default function BloqueActuaciones() {
             </Campo>
           </>
         )}
+      </Seccion>
+
+      <Seccion titulo="Testigos de los hechos">
+        <div className="sm:col-span-2 space-y-3">
+          <Campo etiqueta="¿Existen testigos de los hechos?">
+            <SiNo
+              valor={datos.existenTestigos ?? null}
+              onChange={(v) => set({ existenTestigos: v })}
+            />
+          </Campo>
+          {datos.existenTestigos && (
+            <div className="flex items-center justify-between rounded-md border border-institucional-100 bg-institucional-50 px-4 py-3">
+              <p className="font-sans text-sm text-institucional-900">
+                {testigosCount === null
+                  ? "Cargando testigos…"
+                  : testigosCount === 0
+                    ? "Aún no has agregado ningún testigo."
+                    : `${testigosCount} testigo${testigosCount === 1 ? "" : "s"} registrado${testigosCount === 1 ? "" : "s"}.`}
+              </p>
+              <Link
+                href={`/procedimientos/${id}/testigos`}
+                className="rounded-md bg-acento px-3 py-1.5 font-sans text-sm font-semibold text-white shadow-sm transition-colors hover:bg-acento-hover"
+              >
+                Diligenciar testigos →
+              </Link>
+            </div>
+          )}
+        </div>
       </Seccion>
 
       <div>
@@ -472,19 +535,25 @@ export default function BloqueActuaciones() {
           )}
         </div>
         <p className="mt-2 font-sans text-xs text-institucional-700">
-          El sistema calculará automáticamente si hubo demora entre la captura y la puesta a
-          disposición. Si la hay, deja la justificación abajo.
+          El sistema calcula automáticamente si hubo demora (más de 5 horas) entre la captura y la
+          puesta a disposición.
         </p>
-        <div className="mt-3 rounded-lg border border-institucional-100 bg-white p-6 shadow-sm">
-          <Campo etiqueta="Justificación de la demora (si aplica)">
-            <textarea
-              rows={2}
-              className={claseInput}
-              value={datos.justificacionDemora ?? ""}
-              onChange={(e) => set({ justificacionDemora: e.target.value })}
-            />
-          </Campo>
-        </div>
+        {datos.demoraExistente ? (
+          <div className="mt-3 rounded-lg border border-institucional-100 bg-white p-6 shadow-sm">
+            <Campo etiqueta="Justificación de la demora" requerido>
+              <textarea
+                rows={2}
+                className={claseInput}
+                value={datos.justificacionDemora ?? ""}
+                onChange={(e) => set({ justificacionDemora: e.target.value })}
+              />
+            </Campo>
+          </div>
+        ) : (
+          <p className="mt-2 font-sans text-xs text-institucional-700">
+            No se ha superado el umbral de 5 horas todavía, así que no se solicita justificación.
+          </p>
+        )}
       </div>
     </div>
   );
