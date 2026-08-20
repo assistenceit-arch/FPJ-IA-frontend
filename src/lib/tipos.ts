@@ -54,6 +54,11 @@ export interface ActuacionesProcedimiento {
   horaDerechos: string;
   comprendeDerechos: boolean;
   autoridadReceptora: string;
+  // Adenda 2026-08-20: individualizada por grupo (mayores/menores) en
+  // procedimientos mixtos -- el campo de arriba se sigue usando tal
+  // cual para procedimientos no mixtos.
+  autoridadReceptoraAdultos?: string;
+  autoridadReceptoraMenores?: string;
   justificacionDemora?: string;
   demoraExistente?: boolean;
   // Bloque 6: Relato de los hechos
@@ -71,6 +76,8 @@ export const CLAVES_ACTUACIONES = [
   "horaDerechos",
   "comprendeDerechos",
   "autoridadReceptora",
+  "autoridadReceptoraAdultos",
+  "autoridadReceptoraMenores",
   "justificacionDemora",
   "observacionInicial",
   "desarrolloIntervencion",

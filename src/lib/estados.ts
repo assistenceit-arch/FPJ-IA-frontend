@@ -85,11 +85,17 @@ export function estadoActuaciones(
 ): EstadoBloque {
   if (!actuaciones) return "vacio";
 
-  const requeridos: Array<string | null | undefined> = [
-    actuaciones.autoridadReceptora,
-    procedimiento?.fechaDisposicion,
-    procedimiento?.horaDisposicion,
-  ];
+  // Adenda 2026-08-20: en procedimientos mixtos (adultos y menores a la
+  // vez), la autoridad receptora se pide individualizada por grupo en
+  // vez del campo único.
+  const esMixto =
+    intervinientes.some((p) => p.tipoInterviniente === "CAPTURADO") &&
+    intervinientes.some((p) => p.tipoInterviniente === "APREHENDIDO");
+
+  const requeridos: Array<string | null | undefined> = esMixto
+    ? [actuaciones.autoridadReceptoraAdultos, actuaciones.autoridadReceptoraMenores]
+    : [actuaciones.autoridadReceptora];
+  requeridos.push(procedimiento?.fechaDisposicion, procedimiento?.horaDisposicion);
 
   if (actuaciones.derechosLeidos) {
     requeridos.push(actuaciones.fechaDerechos, actuaciones.horaDerechos);

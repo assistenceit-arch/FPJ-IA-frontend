@@ -31,9 +31,6 @@ export default function PaginaProcedimientos() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="font-display text-2xl text-institucional-950">Mis procedimientos</h1>
-          <p className="mt-1 font-sans text-sm text-institucional-700">
-            Tráfico, Fabricación o Porte de Estupefacientes
-          </p>
         </div>
         <Link
           href="/procedimientos/nuevo"

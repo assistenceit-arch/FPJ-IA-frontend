@@ -45,6 +45,7 @@ interface Capturado {
 interface ContactoNotificacion {
   nombre?: string;
   parentesco?: string;
+  identificacion?: string;
   telefono?: string;
   comunicacionExitosa: boolean;
   horaComunicacion?: string;
@@ -112,6 +113,7 @@ export default function EditarInterviniente() {
             soloClaves(c, [
               "nombre",
               "parentesco",
+              "identificacion",
               "telefono",
               "comunicacionExitosa",
               "horaComunicacion",
@@ -547,6 +549,14 @@ export default function EditarInterviniente() {
               className={claseInput}
               value={contacto.parentesco ?? ""}
               onChange={(e) => setContacto({ ...contacto, parentesco: e.target.value })}
+            />
+          </Campo>
+          <Campo etiqueta="Identificación">
+            <input
+              className={claseInput}
+              placeholder="Escribe “no aportó” si no la suministró"
+              value={contacto.identificacion ?? ""}
+              onChange={(e) => setContacto({ ...contacto, identificacion: e.target.value })}
             />
           </Campo>
           <Campo etiqueta="Teléfono">

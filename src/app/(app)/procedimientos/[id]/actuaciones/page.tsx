@@ -341,6 +341,12 @@ export default function BloqueActuaciones() {
 
   if (cargando) return <p className="font-sans text-sm text-institucional-700">Cargando…</p>;
 
+  // Adenda 2026-08-20: en procedimientos mixtos, la autoridad receptora
+  // se pide individualizada por grupo (mayores/menores).
+  const esMixto =
+    intervinientes.some((p) => p.tipoInterviniente === "CAPTURADO") &&
+    intervinientes.some((p) => p.tipoInterviniente === "APREHENDIDO");
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -438,13 +444,32 @@ export default function BloqueActuaciones() {
               onChange={(v) => setProcedimiento(procedimiento && { ...procedimiento, horaDisposicion: v })}
             />
           </Campo>
-          <Campo etiqueta="Autoridad receptora" requerido>
-            <input
-              className={claseInput}
-              value={datos.autoridadReceptora}
-              onChange={(e) => set({ autoridadReceptora: e.target.value })}
-            />
-          </Campo>
+          {esMixto ? (
+            <>
+              <Campo etiqueta="Autoridad receptora — mayores de edad" requerido>
+                <input
+                  className={claseInput}
+                  value={datos.autoridadReceptoraAdultos ?? ""}
+                  onChange={(e) => set({ autoridadReceptoraAdultos: e.target.value })}
+                />
+              </Campo>
+              <Campo etiqueta="Autoridad receptora — menores de edad" requerido>
+                <input
+                  className={claseInput}
+                  value={datos.autoridadReceptoraMenores ?? ""}
+                  onChange={(e) => set({ autoridadReceptoraMenores: e.target.value })}
+                />
+              </Campo>
+            </>
+          ) : (
+            <Campo etiqueta="Autoridad receptora" requerido>
+              <input
+                className={claseInput}
+                value={datos.autoridadReceptora}
+                onChange={(e) => set({ autoridadReceptora: e.target.value })}
+              />
+            </Campo>
+          )}
         </div>
         <p className="mt-2 font-sans text-xs text-institucional-700">
           El sistema calculará automáticamente si hubo demora entre la captura y la puesta a
