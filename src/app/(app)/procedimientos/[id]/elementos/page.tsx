@@ -3,7 +3,13 @@
 import { useEffect, useState, FormEvent } from "react";
 import { useParams } from "next/navigation";
 import { api, ApiError } from "@/lib/api";
-import { DELITO_ARMAS, DELITO_ESTUPEFACIENTES } from "@/lib/delitos";
+import { DELITO_ARMAS, DELITO_ESTUPEFACIENTES, DELITO_HURTO } from "@/lib/delitos";
+
+interface VictimaResumen {
+  id: string;
+  primerNombre: string;
+  primerApellido: string;
+}
 
 interface CapturadoResumen {
   id: string;
@@ -48,20 +54,25 @@ export default function BloqueElementos() {
   // poder atribuirse a una persona específica, pero que dieron lugar a
   // la captura de todos los intervinientes del procedimiento.
   const [elementosColectivos, setElementosColectivos] = useState<Elemento[]>([]);
+  const [victimas, setVictimas] = useState<VictimaResumen[]>([]);
   const [delito, setDelito] = useState<string>("");
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
 
   async function cargarTodo() {
-    const [personas, procedimiento, colectivos] = await Promise.all([
+    const [personas, procedimiento, colectivos, victimasDelProcedimiento] = await Promise.all([
       api.get<CapturadoResumen[]>(`/procedimientos/${id}/capturados`),
       api.get<{ delito: string }>(`/procedimientos/${id}`),
       api.get<Elemento[]>(`/procedimientos/${id}/elementos-colectivos`),
+      // Adenda 2026-08-21 (módulo Hurto): víctimas, para poder vincular
+      // cada elemento hurtado a la víctima correspondiente.
+      api.get<VictimaResumen[]>(`/procedimientos/${id}/victimas`).catch(() => []),
     ]);
     setIntervinientes(personas);
     setDelito(procedimiento.delito);
     setElementosColectivos(colectivos);
+    setVictimas(victimasDelProcedimiento);
     const listas = await Promise.all(
       personas.map((p) => api.get<Elemento[]>(`/procedimientos/${id}/capturados/${p.id}/elementos`)),
     );
@@ -143,6 +154,7 @@ export default function BloqueElementos() {
           procedimientoId={id}
           intervinientes={intervinientes}
           delito={delito}
+          victimas={victimas}
           onCancelar={() => setMostrarFormulario(false)}
           onCreado={async () => {
             setMostrarFormulario(false);
@@ -227,16 +239,23 @@ function FormularioNuevoElemento({
   procedimientoId,
   intervinientes,
   delito,
+  victimas,
   onCancelar,
   onCreado,
 }: {
   procedimientoId: string;
   intervinientes: CapturadoResumen[];
   delito: string;
+  victimas: VictimaResumen[];
   onCancelar: () => void;
   onCreado: () => void;
 }) {
   const esArmas = delito === DELITO_ARMAS;
+  // Adenda 2026-08-21 (módulo Hurto): campos exclusivos de este delito.
+  const esHurto = delito === DELITO_HURTO;
+  const [victimaId, setVictimaId] = useState("");
+  const [recuperado, setRecuperado] = useState<"" | "SI" | "NO">("");
+  const [recuperadoPor, setRecuperadoPor] = useState("");
   const [capturadoId, setCapturadoId] = useState(intervinientes[0]?.id ?? "");
   const [tipoElemento, setTipoElemento] = useState<"SUSTANCIA" | "DINERO" | "CELULAR" | "ARMA" | "OTRO">(
     esArmas ? "ARMA" : "SUSTANCIA",
@@ -277,6 +296,10 @@ function FormularioNuevoElemento({
       setError("Indica el estado del serial del arma — esta verificación es obligatoria.");
       return;
     }
+    if (esHurto && recuperado === "SI" && !recuperadoPor.trim()) {
+      setError("Indica por quién fue recuperado el bien (Policía, víctima o comunidad).");
+      return;
+    }
     setCargando(true);
     try {
       const cuerpo: Record<string, unknown> = {
@@ -284,6 +307,13 @@ function FormularioNuevoElemento({
         ubicacionHallazgo: ubicacionHallazgo || undefined,
         direccionIncautacion,
       };
+      if (esHurto) {
+        Object.assign(cuerpo, {
+          victimaId: victimaId || undefined,
+          recuperado: recuperado === "" ? undefined : recuperado === "SI",
+          recuperadoPor: recuperado === "SI" ? recuperadoPor.trim() : undefined,
+        });
+      }
       if (tipoElemento === "SUSTANCIA") {
         Object.assign(cuerpo, {
           cantidadEmpaques: Number(cantidadEmpaques),
@@ -560,6 +590,48 @@ function FormularioNuevoElemento({
             onChange={(e) => setDescripcionManual(e.target.value)}
           />
         </Campo>
+      )}
+
+      {esHurto && (
+        <div className="rounded-md border border-institucional-100 bg-institucional-50 p-4">
+          <p className="mb-3 font-sans text-xs font-semibold uppercase tracking-wide text-institucional-700">
+            Datos propios de Hurto
+          </p>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Campo etiqueta="Víctima a la que se le hurtó (si aplica)">
+              <select className={claseInput} value={victimaId} onChange={(e) => setVictimaId(e.target.value)}>
+                <option value="">Sin víctima identificada / no aplica</option>
+                {victimas.map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {v.primerNombre} {v.primerApellido}
+                  </option>
+                ))}
+              </select>
+            </Campo>
+            <Campo etiqueta="¿Fue recuperado?">
+              <select
+                className={claseInput}
+                value={recuperado}
+                onChange={(e) => setRecuperado(e.target.value as typeof recuperado)}
+              >
+                <option value="">Sin determinar</option>
+                <option value="SI">Sí</option>
+                <option value="NO">No</option>
+              </select>
+            </Campo>
+            {recuperado === "SI" && (
+              <Campo etiqueta="¿Por quién?" requerido>
+                <input
+                  required
+                  className={claseInput}
+                  placeholder="Ej. Policía, la propia víctima, con ayuda de la comunidad"
+                  value={recuperadoPor}
+                  onChange={(e) => setRecuperadoPor(e.target.value)}
+                />
+              </Campo>
+            )}
+          </div>
+        </div>
       )}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

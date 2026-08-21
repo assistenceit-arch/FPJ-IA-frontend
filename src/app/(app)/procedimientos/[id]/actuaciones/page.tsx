@@ -10,6 +10,7 @@ import { soloClaves } from "@/lib/limpiar";
 import { CampoHora } from "@/components/CampoHora";
 import type { ActuacionesProcedimiento, Procedimiento } from "@/lib/tipos";
 import { ACTUACIONES_VACIAS, CLAVES_ACTUACIONES } from "@/lib/tipos";
+import { DELITO_ESTUPEFACIENTES } from "@/lib/delitos";
 
 const claseInput =
   "block w-full rounded-md border border-institucional-100 bg-white px-3 py-2 font-sans text-sm text-institucional-950 outline-none focus:border-acento";
@@ -285,6 +286,7 @@ export default function BloqueActuaciones() {
   const [procedimiento, setProcedimiento] = useState<Procedimiento | null>(null);
   const [intervinientes, setIntervinientes] = useState<IntervinienteResumen[]>([]);
   const [testigosCount, setTestigosCount] = useState<number | null>(null);
+  const [victimasCount, setVictimasCount] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -294,7 +296,8 @@ export default function BloqueActuaciones() {
       api.get<Procedimiento>(`/procedimientos/${id}`),
       api.get<IntervinienteResumen[]>(`/procedimientos/${id}/capturados`).catch(() => []),
       api.get<unknown[]>(`/procedimientos/${id}/testigos`).catch(() => null),
-    ]).then(([a, p, capturados, testigos]) => {
+      api.get<unknown[]>(`/procedimientos/${id}/victimas`).catch(() => null),
+    ]).then(([a, p, capturados, testigos, victimas]) => {
       if (cancelado) return;
       if (a) {
         setDatos({
@@ -306,6 +309,7 @@ export default function BloqueActuaciones() {
       setProcedimiento(p);
       setIntervinientes(capturados);
       setTestigosCount(testigos?.length ?? null);
+      setVictimasCount(victimas?.length ?? null);
       setCargando(false);
     });
     return () => {
@@ -459,6 +463,36 @@ export default function BloqueActuaciones() {
           )}
         </div>
       </Seccion>
+
+      {procedimiento?.delito !== DELITO_ESTUPEFACIENTES && (
+        <Seccion titulo="Víctimas">
+          <div className="sm:col-span-2 space-y-3">
+            <Campo etiqueta="¿Existen víctimas identificables?">
+              <SiNo
+                valor={datos.existenVictimas ?? null}
+                onChange={(v) => set({ existenVictimas: v })}
+              />
+            </Campo>
+            {datos.existenVictimas && (
+              <div className="flex items-center justify-between rounded-md border border-institucional-100 bg-institucional-50 px-4 py-3">
+                <p className="font-sans text-sm text-institucional-900">
+                  {victimasCount === null
+                    ? "Cargando víctimas…"
+                    : victimasCount === 0
+                      ? "Aún no has agregado ninguna víctima."
+                      : `${victimasCount} víctima${victimasCount === 1 ? "" : "s"} registrada${victimasCount === 1 ? "" : "s"}.`}
+                </p>
+                <Link
+                  href={`/procedimientos/${id}/victimas`}
+                  className="rounded-md bg-acento px-3 py-1.5 font-sans text-sm font-semibold text-white shadow-sm transition-colors hover:bg-acento-hover"
+                >
+                  Diligenciar víctimas →
+                </Link>
+              </div>
+            )}
+          </div>
+        </Seccion>
+      )}
 
       <div>
         <h2 className="font-display text-lg text-institucional-950">Esposas y estado físico</h2>

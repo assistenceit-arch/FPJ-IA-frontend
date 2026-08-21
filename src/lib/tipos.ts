@@ -72,6 +72,10 @@ export interface ActuacionesProcedimiento {
   // del FPJ 5). Si es true, se diligencia el listado de Testigo por
   // separado (misma dinámica que Intervinientes).
   existenTestigos?: boolean;
+  // Adenda 2026-08-21 (módulo Hurto): existencia de víctimas
+  // identificables (Sección 4 del FPJ 5). Mismo patrón que
+  // existenTestigos. No aplica a Estupefacientes.
+  existenVictimas?: boolean;
 }
 
 export const CLAVES_ACTUACIONES = [
@@ -90,6 +94,7 @@ export const CLAVES_ACTUACIONES = [
   "tieneObservacionAdicional",
   "observacionAdicional",
   "existenTestigos",
+  "existenVictimas",
 ] as const;
 
 export const ACTUACIONES_VACIAS: ActuacionesProcedimiento = {
@@ -122,4 +127,30 @@ export interface Testigo {
   direccion: string | null;
   telefono: string | null;
   correo: string | null;
+}
+
+// Adenda 2026-08-21 (módulo Hurto): Víctimas (Sección 4 del FPJ 5),
+// núcleo común transversal a todos los delitos que las requieran.
+// Mismos campos que Testigo + relacionIndiciado.
+export interface Victima {
+  id: string;
+  primerNombre: string;
+  segundoNombre: string | null;
+  primerApellido: string;
+  segundoApellido: string | null;
+  tipoDocumento: string | null;
+  numeroDocumento: string | null;
+  expedicionDocumento: string | null;
+  fechaNacimiento: string | null;
+  edad: number | null;
+  genero: string | null;
+  paisNacimiento: string | null;
+  departamentoNacimiento: string | null;
+  municipioNacimiento: string | null;
+  profesionOficio: string | null;
+  estadoCivil: string | null;
+  direccion: string | null;
+  telefono: string | null;
+  correo: string | null;
+  relacionIndiciado: string | null;
 }

@@ -10,6 +10,7 @@
 export const DELITOS_SOPORTADOS = [
   "Tráfico, Fabricación o Porte de Estupefacientes",
   "Porte Ilegal de Armas de Fuego",
+  "Hurto",
 ] as const;
 
 export type DelitoSoportado = (typeof DELITOS_SOPORTADOS)[number];
@@ -17,3 +18,4 @@ export type DelitoSoportado = (typeof DELITOS_SOPORTADOS)[number];
 export const DELITO_ARMAS: DelitoSoportado = "Porte Ilegal de Armas de Fuego";
 export const DELITO_ESTUPEFACIENTES: DelitoSoportado =
   "Tráfico, Fabricación o Porte de Estupefacientes";
+export const DELITO_HURTO: DelitoSoportado = "Hurto";
