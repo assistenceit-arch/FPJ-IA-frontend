@@ -67,6 +67,10 @@ function FilaEsposas({
     primerNombre: string;
     primerApellido: string;
     tipoInterviniente: string;
+    derechosLeidos: boolean | null;
+    fechaCaptura: string | null;
+    horaCaptura: string | null;
+    comprendeDerechos: boolean | null;
     usoEsposas: boolean | null;
     justificacionEsposas: string | null;
     tiempoEsposado: string | null;
@@ -80,6 +84,17 @@ function FilaEsposas({
     motivoTraslado: string | null;
   };
 }) {
+  // Adenda 2026-08-21: lectura de derechos individual por interviniente
+  // (antes era una sola respuesta en Actuaciones para todo el
+  // procedimiento) -- bug real reportado tras caso en vivo: no permitía
+  // capturas/aprehensiones en horas distintas dentro de un mismo
+  // procedimiento. Mismo criterio de "sin responder" (null) que
+  // esposas/lesiones.
+  const [derechosLeidos, setDerechosLeidos] = useState<boolean | null>(persona.derechosLeidos);
+  const [fechaCaptura, setFechaCaptura] = useState(persona.fechaCaptura ?? "");
+  const [horaCaptura, setHoraCaptura] = useState(persona.horaCaptura ?? "");
+  const [comprendeDerechos, setComprendeDerechos] = useState<boolean | null>(persona.comprendeDerechos);
+
   // Adenda 2026-08-06: antes iniciaba en `false` por defecto, lo que
   // mostraba el botón "No" ya seleccionado sin que el funcionario
   // hubiera respondido de verdad. Si nunca hacía clic (porque ya se veía
@@ -112,6 +127,10 @@ function FilaEsposas({
 
   const guardar = useCallback(
     async (valor: {
+      derechosLeidos: boolean | null;
+      fechaCaptura: string;
+      horaCaptura: string;
+      comprendeDerechos: boolean | null;
       usoEsposas: boolean | null;
       justificacionEsposas: string;
       tiempoEsposado: string;
@@ -124,16 +143,31 @@ function FilaEsposas({
       centroAsistencial: string;
       motivoTraslado: string;
     }) => {
-      // Nada que guardar todavía si ninguna de las dos preguntas
-      // "sin responder" (esposas/lesiones) se ha contestado — evita un
-      // PATCH vacío/prematuro apenas se monta la fila.
-      if (valor.usoEsposas === null && valor.presentaLesiones === null) return;
-      await api.patch(`/procedimientos/${procedimientoId}/capturados/${persona.id}`, valor);
+      // Nada que guardar todavía si ninguna de las tres preguntas
+      // "sin responder" (derechos/esposas/lesiones) se ha contestado —
+      // evita un PATCH vacío/prematuro apenas se monta la fila.
+      if (valor.derechosLeidos === null && valor.usoEsposas === null && valor.presentaLesiones === null) {
+        return;
+      }
+      // fechaCaptura llega como "YYYY-MM-DD" desde el <input type="date">
+      // -- se normaliza al formato ISO completo que espera el backend,
+      // igual que fechaNacimiento en la ficha del interviniente. Cadena
+      // vacía se omite (derechosLeidos puede ser true sin que el
+      // funcionario haya llegado a diligenciar fecha/hora todavía).
+      const { fechaCaptura: fc, ...resto } = valor;
+      await api.patch(`/procedimientos/${procedimientoId}/capturados/${persona.id}`, {
+        ...resto,
+        ...(fc ? { fechaCaptura: `${fc}T00:00:00.000Z` } : {}),
+      });
     },
     [procedimientoId, persona.id],
   );
   const { estado } = useAutoguardado(
     {
+      derechosLeidos,
+      fechaCaptura,
+      horaCaptura,
+      comprendeDerechos,
       usoEsposas,
       justificacionEsposas,
       tiempoEsposado,
@@ -156,6 +190,35 @@ function FilaEsposas({
           {persona.primerNombre} {persona.primerApellido}
         </p>
         <IndicadorGuardado estado={estado} />
+      </div>
+
+      <div className="mt-3 space-y-3 border-b border-institucional-100 pb-4">
+        <p className="font-sans text-xs font-semibold uppercase tracking-wide text-institucional-700">
+          Lectura de derechos
+        </p>
+        <Campo etiqueta="¿Se le leyeron los derechos?" requerido>
+          <SiNo valor={derechosLeidos} onChange={setDerechosLeidos} />
+        </Campo>
+        {derechosLeidos && (
+          <>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <Campo etiqueta="Fecha de captura/aprehensión (lectura de derechos)" requerido>
+                <input
+                  type="date"
+                  className={claseInput}
+                  value={fechaCaptura.slice(0, 10)}
+                  onChange={(e) => setFechaCaptura(e.target.value)}
+                />
+              </Campo>
+              <Campo etiqueta="Hora de captura/aprehensión" requerido>
+                <CampoHora value={horaCaptura} onChange={setHoraCaptura} />
+              </Campo>
+            </div>
+            <Campo etiqueta="¿Comprendió los derechos informados?" requerido>
+              <SiNo valor={comprendeDerechos} onChange={setComprendeDerechos} />
+            </Campo>
+          </>
+        )}
       </div>
 
       {esAprehendido && (
@@ -266,6 +329,10 @@ interface IntervinienteResumen {
   primerNombre: string;
   primerApellido: string;
   tipoInterviniente: string;
+  derechosLeidos: boolean | null;
+  fechaCaptura: string | null;
+  horaCaptura: string | null;
+  comprendeDerechos: boolean | null;
   usoEsposas: boolean | null;
   justificacionEsposas: string | null;
   tiempoEsposado: string | null;
@@ -408,32 +475,12 @@ export default function BloqueActuaciones() {
         <p className="font-sans text-sm text-institucional-700">
           {new Date(procedimiento!.fechaCaptura).toLocaleDateString("es-CO")} · {procedimiento!.horaCaptura}
         </p>
-      </Seccion>
-
-      <Seccion titulo="Lectura de derechos">
-        <Campo etiqueta="¿Se le leyeron los derechos?" requerido>
-          <SiNo valor={datos.derechosLeidos} onChange={(v) => set({ derechosLeidos: v })} />
-        </Campo>
-        {datos.derechosLeidos && (
-          <>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <Campo etiqueta="Fecha de lectura de derechos" requerido>
-                <input
-                  type="date"
-                  className={claseInput}
-                  value={datos.fechaDerechos?.slice(0, 10) ?? ""}
-                  onChange={(e) => set({ fechaDerechos: e.target.value ? `${e.target.value}T00:00:00.000Z` : "" })}
-                />
-              </Campo>
-              <Campo etiqueta="Hora de lectura de derechos" requerido>
-                <CampoHora value={datos.horaDerechos} onChange={(v) => set({ horaDerechos: v })} />
-              </Campo>
-            </div>
-            <Campo etiqueta="¿Comprendió los derechos informados?" requerido>
-              <SiNo valor={datos.comprendeDerechos} onChange={(v) => set({ comprendeDerechos: v })} />
-            </Campo>
-          </>
-        )}
+        <p className="mt-1 font-sans text-xs text-institucional-700">
+          Este es el estimado registrado al crear el procedimiento. La hora de captura real de
+          cada interviniente (lectura de derechos) se diligencia de forma individual desde su
+          ficha en Intervinientes — puede diferir de un interviniente a otro si no fueron
+          capturados en el mismo momento.
+        </p>
       </Seccion>
 
       <Seccion titulo="Testigos de los hechos">

@@ -49,10 +49,11 @@ export interface LugarProcedimiento {
 export type EstadoBloque = "vacio" | "pendiente" | "completo";
 
 export interface ActuacionesProcedimiento {
-  derechosLeidos: boolean;
-  fechaDerechos: string;
-  horaDerechos: string;
-  comprendeDerechos: boolean;
+  // Adenda 2026-08-21: derechosLeidos/fechaDerechos/horaDerechos/
+  // comprendeDerechos se quitan de aquí -- pasan a ser individuales por
+  // interviniente (ver Capturado en intervinientes/[capturadoId]),
+  // porque cada persona puede haber sido capturada/aprehendida en un
+  // momento distinto dentro del mismo procedimiento.
   autoridadReceptora: string;
   // Adenda 2026-08-20: individualizada por grupo (mayores/menores) en
   // procedimientos mixtos -- el campo de arriba se sigue usando tal
@@ -79,10 +80,6 @@ export interface ActuacionesProcedimiento {
 }
 
 export const CLAVES_ACTUACIONES = [
-  "derechosLeidos",
-  "fechaDerechos",
-  "horaDerechos",
-  "comprendeDerechos",
   "autoridadReceptora",
   "autoridadReceptoraAdultos",
   "autoridadReceptoraMenores",
@@ -98,10 +95,6 @@ export const CLAVES_ACTUACIONES = [
 ] as const;
 
 export const ACTUACIONES_VACIAS: ActuacionesProcedimiento = {
-  derechosLeidos: false,
-  fechaDerechos: "",
-  horaDerechos: "",
-  comprendeDerechos: false,
   autoridadReceptora: "",
 };
 

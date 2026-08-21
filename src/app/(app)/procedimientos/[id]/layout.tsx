@@ -33,6 +33,10 @@ interface ItemBloque {
 interface CapturadoResumen {
   id: string;
   tipoInterviniente: "CAPTURADO" | "APREHENDIDO";
+  derechosLeidos: boolean | null;
+  fechaCaptura: string | null;
+  horaCaptura: string | null;
+  comprendeDerechos: boolean | null;
   usoEsposas: boolean | null;
   justificacionEsposas: string | null;
   presentaLesiones: boolean | null;

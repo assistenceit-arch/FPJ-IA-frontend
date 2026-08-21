@@ -33,10 +33,23 @@ interface Capturado {
   descripcionFisicaVestimenta: string | null;
   nombrePadres: string | null;
   telefonoPadres: string | null;
+  // Adenda 2026-08-21: faltaba por completo en el frontend (bug real
+  // reportado tras caso en vivo) -- el backend y la plantilla del FPJ5/
+  // FPJ6 ya lo esperaban, pero no había dónde diligenciarlo.
+  escolaridad: string | null;
   participacionHechos: string | null;
   comportamientoAbordaje: string | null;
   identificacionPlena: boolean;
   formaIdentificacion: string | null;
+  // Adenda 2026-08-21: lectura de derechos individual por interviniente
+  // (antes era una sola respuesta en Actuaciones para todo el
+  // procedimiento) -- bug real reportado tras caso en vivo: no permitía
+  // capturas/aprehensiones en horas distintas dentro de un mismo
+  // procedimiento.
+  derechosLeidos: boolean | null;
+  fechaCaptura: string | null;
+  horaCaptura: string | null;
+  comprendeDerechos: boolean | null;
   // Adenda 2026-08-12: exclusivo del módulo de Porte Ilegal de Armas de
   // Fuego. PORTE | TENENCIA | NINGUNO | null.
   tipoPermisoArma: string | null;
@@ -154,12 +167,20 @@ export default function EditarInterviniente() {
         "descripcionFisicaVestimenta",
         "nombrePadres",
         "telefonoPadres",
+        "escolaridad",
         "participacionHechos",
         "comportamientoAbordaje",
         "identificacionPlena",
         "formaIdentificacion",
         "tipoPermisoArma",
+        "derechosLeidos",
+        "horaCaptura",
+        "comprendeDerechos",
       ]);
+      // fechaCaptura y fechaNacimiento se manejan aparte (conversión de
+      // formato), igual que edadManual.
+      const derechos =
+        datos.fechaCaptura !== null ? { fechaCaptura: datos.fechaCaptura } : {};
       // fechaNacimiento y edadManual son mutuamente excluyentes (opción
       // "No aporta fecha de nacimiento"); nunca se envían los dos juntos.
       const nacimiento =
@@ -167,7 +188,11 @@ export default function EditarInterviniente() {
           ? { edadManual: datos.edad }
           : { fechaNacimiento: datos.fechaNacimiento };
       try {
-        await api.patch(`/procedimientos/${id}/capturados/${capturadoId}`, { ...resto, ...nacimiento });
+        await api.patch(`/procedimientos/${id}/capturados/${capturadoId}`, {
+          ...resto,
+          ...nacimiento,
+          ...derechos,
+        });
         setError(null);
       } catch (err) {
         setError(err instanceof ApiError ? err.message : "No fue posible guardar.");
@@ -369,6 +394,14 @@ export default function EditarInterviniente() {
             className={claseInput}
             value={p.ocupacion ?? ""}
             onChange={(e) => set({ ocupacion: e.target.value })}
+          />
+        </Campo>
+        <Campo etiqueta="Escolaridad">
+          <input
+            className={claseInput}
+            placeholder="Ej. Bachiller, primaria incompleta, técnico..."
+            value={p.escolaridad ?? ""}
+            onChange={(e) => set({ escolaridad: e.target.value })}
           />
         </Campo>
       </Seccion>

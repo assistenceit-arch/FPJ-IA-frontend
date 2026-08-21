@@ -51,18 +51,19 @@ export function estadoElementos(cantidadElementos: number | null): EstadoBloque 
 /**
  * Bloque 5 — Actuaciones procedimentales.
  *
- * "Vacío" si el registro nunca se ha guardado (el backend solo lo crea
- * cuando ya se diligenciaron fechaDerechos + horaDerechos +
- * autoridadReceptora, ver actuaciones/page.tsx). Una vez existe, es
- * "completo" solo si además: (a) los campos condicionales de cada
+ * "Vacío" si el registro nunca se ha guardado (el backend lo crea al
+ * guardar autoridadReceptora, ver actuaciones/page.tsx). Una vez existe,
+ * es "completo" solo si además: (a) los campos condicionales de cada
  * subsección están llenos cuando la pregunta Sí/No correspondiente fue
  * "Sí", (b) la puesta a disposición (fecha/hora, guardadas en el
  * Procedimiento) está diligenciada, (c) si hay demora, hay justificación,
- * (d) cada interviniente Aprehendido tiene respondida la pregunta de uso
- * de esposas (Adenda 2026-08-03), y (e) cada interviniente (cualquier
- * tipo) tiene respondida la pregunta de lesiones (Adenda 2026-08-11:
- * pasó de ser una sola respuesta del procedimiento a individual por
- * interviniente, mismo criterio que esposas).
+ * (d) cada interviniente tiene respondida la lectura de derechos (Adenda
+ * 2026-08-21: pasó de ser una sola respuesta del procedimiento a
+ * individual por interviniente -- bug real reportado tras caso en vivo,
+ * mismo criterio que esposas/lesiones), (e) cada interviniente
+ * Aprehendido tiene respondida la pregunta de uso de esposas (Adenda
+ * 2026-08-03), y (f) cada interviniente (cualquier tipo) tiene
+ * respondida la pregunta de lesiones (Adenda 2026-08-11).
  *
  * Nota (actualizada 2026-08-04): demoraExistente lo calcula el backend
  * al vuelo cada vez que se consulta este bloque (no es un valor
@@ -74,6 +75,10 @@ export function estadoActuaciones(
   procedimiento: Procedimiento | null,
   intervinientes: Array<{
     tipoInterviniente?: string;
+    derechosLeidos?: boolean | null;
+    fechaCaptura?: string | null;
+    horaCaptura?: string | null;
+    comprendeDerechos?: boolean | null;
     usoEsposas: boolean | null;
     justificacionEsposas: string | null;
     presentaLesiones?: boolean | null;
@@ -97,14 +102,21 @@ export function estadoActuaciones(
     : [actuaciones.autoridadReceptora];
   requeridos.push(procedimiento?.fechaDisposicion, procedimiento?.horaDisposicion);
 
-  if (actuaciones.derechosLeidos) {
-    requeridos.push(actuaciones.fechaDerechos, actuaciones.horaDerechos);
-  }
   if (actuaciones.demoraExistente) {
     requeridos.push(actuaciones.justificacionDemora);
   }
 
   const textosCompletos = requeridos.every((v) => Boolean(v && v.trim()));
+
+  // Adenda 2026-08-21: lectura de derechos individual por interviniente.
+  const derechosCompletos = intervinientes.every((p) => {
+    if (p.derechosLeidos === null || p.derechosLeidos === undefined) return false;
+    if (p.derechosLeidos === true) {
+      if (!p.fechaCaptura?.trim() || !p.horaCaptura?.trim()) return false;
+      return p.comprendeDerechos !== null && p.comprendeDerechos !== undefined;
+    }
+    return true;
+  });
 
   const esposasCompletas = intervinientes
     .filter((p) => p.tipoInterviniente === "APREHENDIDO")
@@ -126,7 +138,9 @@ export function estadoActuaciones(
     return true;
   });
 
-  return textosCompletos && esposasCompletas && lesionesCompletas ? "completo" : "pendiente";
+  return textosCompletos && derechosCompletos && esposasCompletas && lesionesCompletas
+    ? "completo"
+    : "pendiente";
 }
 
 /**

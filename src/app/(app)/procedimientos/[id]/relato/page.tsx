@@ -64,7 +64,11 @@ export default function BloqueRelato() {
         // Adenda 2026-08-03: esto ahora es solo informativo — el relato
         // ya se guarda igual aunque falte el Bloque 5 (el backend admite
         // borrador parcial). Antes esto bloqueaba también el guardado.
-        setFaltaBloque5(!a || !a.fechaDerechos || !a.horaDerechos || !a.autoridadReceptora?.trim());
+        // Adenda 2026-08-21: la lectura de derechos pasó a ser individual
+        // por interviniente (ya no vive en este registro), así que este
+        // aviso ahora solo vigila la autoridad receptora -- un vistazo
+        // rápido, no una validación exhaustiva del Bloque 5.
+        setFaltaBloque5(!a || !a.autoridadReceptora?.trim());
         setCargando(false);
       })
       .catch(() => setCargando(false));
@@ -80,7 +84,7 @@ export default function BloqueRelato() {
       // bloque aún no está completo — el backend admite borrador
       // parcial. El aviso de abajo queda solo como sugerencia de orden
       // de trabajo, no como impedimento.
-      setFaltaBloque5(!valor.fechaDerechos || !valor.horaDerechos || !valor.autoridadReceptora?.trim());
+      setFaltaBloque5(!valor.autoridadReceptora?.trim());
       try {
         await api.put(`/procedimientos/${id}/actuaciones-procedimiento`, valor);
         setError(null);
