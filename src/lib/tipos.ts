@@ -146,4 +146,14 @@ export interface Victima {
   telefono: string | null;
   correo: string | null;
   relacionIndiciado: string | null;
+  // Adenda 2026-08-22 (módulo Lesiones Personales): estado físico,
+  // núcleo común -- mismos campos que Capturado, sin motivoLesion.
+  presentaLesiones: boolean | null;
+  descripcionLesiones: string | null;
+  parteCuerpoLesion: string | null;
+  causanteLesion: string | null;
+  elementoCausante: string | null;
+  trasladoCentroAsistencial: boolean | null;
+  centroAsistencial: string | null;
+  motivoTraslado: string | null;
 }

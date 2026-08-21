@@ -32,6 +32,27 @@ function Campo({
 const claseInput =
   "block w-full rounded-md border border-institucional-100 bg-white px-3 py-2 font-sans text-sm text-institucional-950 outline-none focus:border-acento";
 
+function SiNo({ valor, onChange }: { valor: boolean | null; onChange: (v: boolean) => void }) {
+  return (
+    <div className="flex gap-3">
+      {[true, false].map((v) => (
+        <button
+          type="button"
+          key={String(v)}
+          onClick={() => onChange(v)}
+          className={`rounded-md border px-4 py-2 font-sans text-sm transition-colors ${
+            valor === v
+              ? "border-acento bg-acento-light text-acento-hover"
+              : "border-institucional-100 text-institucional-700 hover:bg-institucional-50"
+          }`}
+        >
+          {v ? "Sí" : "No"}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function Seccion({ titulo, children }: { titulo: string; children: React.ReactNode }) {
   return (
     <div className="rounded-lg border border-institucional-100 bg-white p-6 shadow-sm">
@@ -59,6 +80,14 @@ const CLAVES_GUARDABLES = [
   "telefono",
   "correo",
   "relacionIndiciado",
+  "presentaLesiones",
+  "descripcionLesiones",
+  "parteCuerpoLesion",
+  "causanteLesion",
+  "elementoCausante",
+  "trasladoCentroAsistencial",
+  "centroAsistencial",
+  "motivoTraslado",
 ] as const;
 
 export default function EditarVictima() {
@@ -340,6 +369,82 @@ export default function EditarVictima() {
           />
         </Campo>
       </Seccion>
+
+      <div className="rounded-lg border border-institucional-100 bg-white p-6 shadow-sm">
+        <h2 className="font-display text-lg text-institucional-950">Estado físico</h2>
+        <div className="mt-4 space-y-3">
+          <Campo etiqueta="¿Presentó lesiones?">
+            <SiNo
+              valor={p.presentaLesiones}
+              onChange={(v) => set({ presentaLesiones: v })}
+            />
+          </Campo>
+          {p.presentaLesiones && (
+            <>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <Campo etiqueta="Descripción de las lesiones" requerido>
+                  <textarea
+                    rows={2}
+                    className={claseInput}
+                    placeholder="Ej. hematoma, sangrado, herida abierta"
+                    value={p.descripcionLesiones ?? ""}
+                    onChange={(e) => set({ descripcionLesiones: e.target.value || null })}
+                  />
+                </Campo>
+                <Campo etiqueta="Parte del cuerpo" requerido>
+                  <input
+                    className={claseInput}
+                    value={p.parteCuerpoLesion ?? ""}
+                    onChange={(e) => set({ parteCuerpoLesion: e.target.value || null })}
+                  />
+                </Campo>
+              </div>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <Campo etiqueta="¿Quién se la causó?">
+                  <input
+                    className={claseInput}
+                    placeholder="Ej. el indiciado, un tercero no identificado"
+                    value={p.causanteLesion ?? ""}
+                    onChange={(e) => set({ causanteLesion: e.target.value || null })}
+                  />
+                </Campo>
+                <Campo etiqueta="¿Con qué se la causó?">
+                  <input
+                    className={claseInput}
+                    placeholder="Ej. elemento contundente, arma blanca, las manos"
+                    value={p.elementoCausante ?? ""}
+                    onChange={(e) => set({ elementoCausante: e.target.value || null })}
+                  />
+                </Campo>
+              </div>
+              <Campo etiqueta="¿Fue trasladada a centro asistencial?" requerido>
+                <SiNo
+                  valor={p.trasladoCentroAsistencial}
+                  onChange={(v) => set({ trasladoCentroAsistencial: v })}
+                />
+              </Campo>
+              {p.trasladoCentroAsistencial && (
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <Campo etiqueta="Nombre del centro asistencial" requerido>
+                    <input
+                      className={claseInput}
+                      value={p.centroAsistencial ?? ""}
+                      onChange={(e) => set({ centroAsistencial: e.target.value || null })}
+                    />
+                  </Campo>
+                  <Campo etiqueta="Motivo del traslado" requerido>
+                    <input
+                      className={claseInput}
+                      value={p.motivoTraslado ?? ""}
+                      onChange={(e) => set({ motivoTraslado: e.target.value || null })}
+                    />
+                  </Campo>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
 
       <button
         type="button"

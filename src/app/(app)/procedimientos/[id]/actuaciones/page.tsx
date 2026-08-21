@@ -79,6 +79,10 @@ function FilaEsposas({
     descripcionLesiones: string | null;
     parteCuerpoLesion: string | null;
     motivoLesion: string | null;
+    // Adenda 2026-08-22 (módulo Lesiones Personales): transversal, texto
+    // libre en ambos casos.
+    causanteLesion: string | null;
+    elementoCausante: string | null;
     trasladoCentroAsistencial: boolean | null;
     centroAsistencial: string | null;
     motivoTraslado: string | null;
@@ -117,6 +121,10 @@ function FilaEsposas({
   const [descripcionLesiones, setDescripcionLesiones] = useState(persona.descripcionLesiones ?? "");
   const [parteCuerpoLesion, setParteCuerpoLesion] = useState(persona.parteCuerpoLesion ?? "");
   const [motivoLesion, setMotivoLesion] = useState(persona.motivoLesion ?? "");
+  // Adenda 2026-08-22 (módulo Lesiones Personales): transversal, texto
+  // libre en ambos casos.
+  const [causanteLesion, setCausanteLesion] = useState(persona.causanteLesion ?? "");
+  const [elementoCausante, setElementoCausante] = useState(persona.elementoCausante ?? "");
   const [trasladoCentroAsistencial, setTrasladoCentroAsistencial] = useState<boolean | null>(
     persona.trasladoCentroAsistencial,
   );
@@ -139,6 +147,8 @@ function FilaEsposas({
       descripcionLesiones: string;
       parteCuerpoLesion: string;
       motivoLesion: string;
+      causanteLesion: string;
+      elementoCausante: string;
       trasladoCentroAsistencial: boolean | null;
       centroAsistencial: string;
       motivoTraslado: string;
@@ -176,6 +186,8 @@ function FilaEsposas({
       descripcionLesiones,
       parteCuerpoLesion,
       motivoLesion,
+      causanteLesion,
+      elementoCausante,
       trasladoCentroAsistencial,
       centroAsistencial,
       motivoTraslado,
@@ -296,6 +308,24 @@ function FilaEsposas({
                 onChange={(e) => setMotivoLesion(e.target.value)}
               />
             </Campo>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <Campo etiqueta="¿Quién se la causó?">
+                <input
+                  className={claseInput}
+                  placeholder="Ej. un tercero no identificado, la comunidad"
+                  value={causanteLesion}
+                  onChange={(e) => setCausanteLesion(e.target.value)}
+                />
+              </Campo>
+              <Campo etiqueta="¿Con qué se la causó?">
+                <input
+                  className={claseInput}
+                  placeholder="Ej. elemento contundente, arma blanca, las manos"
+                  value={elementoCausante}
+                  onChange={(e) => setElementoCausante(e.target.value)}
+                />
+              </Campo>
+            </div>
             <Campo etiqueta="¿Fue trasladado a centro asistencial?" requerido>
               <SiNo valor={trasladoCentroAsistencial} onChange={setTrasladoCentroAsistencial} />
             </Campo>
@@ -341,6 +371,8 @@ interface IntervinienteResumen {
   descripcionLesiones: string | null;
   parteCuerpoLesion: string | null;
   motivoLesion: string | null;
+  causanteLesion: string | null;
+  elementoCausante: string | null;
   trasladoCentroAsistencial: boolean | null;
   centroAsistencial: string | null;
   motivoTraslado: string | null;
