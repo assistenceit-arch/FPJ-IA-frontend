@@ -8,6 +8,7 @@ import { useAutoguardado } from "@/lib/useAutoguardado";
 import { IndicadorGuardado } from "@/components/IndicadorGuardado";
 import { soloClaves } from "@/lib/limpiar";
 import type { Victima } from "@/lib/tipos";
+import { DELITO_VCSP, DELITO_VIF } from "@/lib/delitos";
 
 function Campo({
   etiqueta,
@@ -88,23 +89,40 @@ const CLAVES_GUARDABLES = [
   "trasladoCentroAsistencial",
   "centroAsistencial",
   "motivoTraslado",
+  "entidadServidorPublico",
+  "cargoServidorPublico",
+  "uniformado",
+  "enEjercicioFunciones",
+  "indiciadoConocioCalidad",
+  "relacionFamiliar",
+  "existenMedidasProteccion",
+  "descripcionMedidasProteccion",
+  "existenAntecedentesViolencia",
+  "descripcionAntecedentesViolencia",
 ] as const;
 
 export default function EditarVictima() {
   const { id, victimaId } = useParams<{ id: string; victimaId: string }>();
   const [cargando, setCargando] = useState(true);
   const [persona, setPersona] = useState<Victima | null>(null);
+  const [delito, setDelito] = useState<string>("");
   const [noAportaFechaNacimiento, setNoAportaFechaNacimiento] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [eliminando, setEliminando] = useState(false);
 
   useEffect(() => {
     let cancelado = false;
-    api
-      .get<Victima>(`/procedimientos/${id}/victimas/${victimaId}`)
-      .then((t) => {
+    Promise.all([
+      api.get<Victima>(`/procedimientos/${id}/victimas/${victimaId}`),
+      // Adenda 2026-08-22 (módulos VCSP/VIF): se necesita el delito del
+      // procedimiento para mostrar las secciones condicionales propias
+      // de cada uno (servidor público / relación familiar).
+      api.get<{ delito: string }>(`/procedimientos/${id}`).catch(() => ({ delito: "" })),
+    ])
+      .then(([t, p]) => {
         if (cancelado) return;
         setPersona(t);
+        setDelito(p.delito);
         setNoAportaFechaNacimiento(t.fechaNacimiento === null && t.edad !== null);
         setCargando(false);
       })
@@ -445,6 +463,86 @@ export default function EditarVictima() {
           )}
         </div>
       </div>
+
+      {delito === DELITO_VCSP && (
+        <Seccion titulo="Servidor público">
+          <Campo etiqueta="Entidad a la que pertenece" requerido>
+            <input
+              className={claseInput}
+              placeholder="Ej. Policía Nacional, Fiscalía, inspección de tránsito"
+              value={p.entidadServidorPublico ?? ""}
+              onChange={(e) => set({ entidadServidorPublico: e.target.value || null })}
+            />
+          </Campo>
+          <Campo etiqueta="Cargo o grado" requerido>
+            <input
+              className={claseInput}
+              placeholder="Ej. Patrullero, Intendente"
+              value={p.cargoServidorPublico ?? ""}
+              onChange={(e) => set({ cargoServidorPublico: e.target.value || null })}
+            />
+          </Campo>
+          <Campo etiqueta="¿Se encontraba uniformada?">
+            <SiNo valor={p.uniformado} onChange={(v) => set({ uniformado: v })} />
+          </Campo>
+          <Campo etiqueta="¿En ejercicio de sus funciones?">
+            <SiNo valor={p.enEjercicioFunciones} onChange={(v) => set({ enEjercicioFunciones: v })} />
+          </Campo>
+          <div className="sm:col-span-2">
+            <Campo etiqueta="¿El indiciado conocía su calidad de servidor público?">
+              <SiNo
+                valor={p.indiciadoConocioCalidad}
+                onChange={(v) => set({ indiciadoConocioCalidad: v })}
+              />
+            </Campo>
+          </div>
+        </Seccion>
+      )}
+
+      {delito === DELITO_VIF && (
+        <Seccion titulo="Relación familiar">
+          <div className="sm:col-span-2">
+            <Campo etiqueta="Relación familiar con el indiciado" requerido>
+              <input
+                className={claseInput}
+                placeholder="Ej. cónyuge, excónyuge, compañero permanente, ascendiente, descendiente"
+                value={p.relacionFamiliar ?? ""}
+                onChange={(e) => set({ relacionFamiliar: e.target.value || null })}
+              />
+            </Campo>
+          </div>
+          <Campo etiqueta="¿Existen medidas de protección previas?">
+            <SiNo
+              valor={p.existenMedidasProteccion}
+              onChange={(v) => set({ existenMedidasProteccion: v })}
+            />
+          </Campo>
+          {p.existenMedidasProteccion && (
+            <Campo etiqueta="Descripción (autoridad que la expidió)" requerido>
+              <input
+                className={claseInput}
+                value={p.descripcionMedidasProteccion ?? ""}
+                onChange={(e) => set({ descripcionMedidasProteccion: e.target.value || null })}
+              />
+            </Campo>
+          )}
+          <Campo etiqueta="¿Existen antecedentes de violencia previos?">
+            <SiNo
+              valor={p.existenAntecedentesViolencia}
+              onChange={(v) => set({ existenAntecedentesViolencia: v })}
+            />
+          </Campo>
+          {p.existenAntecedentesViolencia && (
+            <Campo etiqueta="Descripción" requerido>
+              <input
+                className={claseInput}
+                value={p.descripcionAntecedentesViolencia ?? ""}
+                onChange={(e) => set({ descripcionAntecedentesViolencia: e.target.value || null })}
+              />
+            </Campo>
+          )}
+        </Seccion>
+      )}
 
       <button
         type="button"

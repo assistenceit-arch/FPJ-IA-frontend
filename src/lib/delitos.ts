@@ -12,6 +12,8 @@ export const DELITOS_SOPORTADOS = [
   "Porte Ilegal de Armas de Fuego",
   "Hurto",
   "Lesiones Personales",
+  "Violencia contra Servidor Público",
+  "Violencia Intrafamiliar",
 ] as const;
 
 export type DelitoSoportado = (typeof DELITOS_SOPORTADOS)[number];
@@ -21,3 +23,5 @@ export const DELITO_ESTUPEFACIENTES: DelitoSoportado =
   "Tráfico, Fabricación o Porte de Estupefacientes";
 export const DELITO_HURTO: DelitoSoportado = "Hurto";
 export const DELITO_LESIONES: DelitoSoportado = "Lesiones Personales";
+export const DELITO_VCSP: DelitoSoportado = "Violencia contra Servidor Público";
+export const DELITO_VIF: DelitoSoportado = "Violencia Intrafamiliar";
