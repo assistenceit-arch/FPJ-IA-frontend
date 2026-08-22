@@ -189,8 +189,8 @@ export default function BloqueRelato() {
       </div>
 
       <p className="font-sans text-xs text-institucional-700">
-        La participación y el comportamiento de cada interviniente durante el abordaje se registran
-        de forma individual en el Bloque 2 (Intervinientes).
+        La participación y el comportamiento de cada capturado o aprehendido durante el abordaje se registran
+        de forma individual en el Bloque 2 (Capturados/Aprehendidos).
       </p>
     </div>
   );

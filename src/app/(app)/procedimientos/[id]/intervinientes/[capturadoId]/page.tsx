@@ -137,7 +137,7 @@ export default function EditarInterviniente() {
         setCargando(false);
       })
       .catch((err) => {
-        setError(err instanceof ApiError ? err.message : "No fue posible cargar el interviniente.");
+        setError(err instanceof ApiError ? err.message : "No fue posible cargar el registro.");
         setCargando(false);
       });
     return () => {
@@ -213,7 +213,7 @@ export default function EditarInterviniente() {
   const { estado: estadoContacto } = useAutoguardado(contacto, guardarContacto, { activo: !cargando });
 
   async function eliminarInterviniente() {
-    if (!confirm("¿Eliminar este interviniente? Esta acción no se puede deshacer.")) return;
+    if (!confirm("¿Eliminar este capturado/aprehendido? Esta acción no se puede deshacer.")) return;
     setEliminando(true);
     try {
       await api.delete(`/procedimientos/${id}/capturados/${capturadoId}`);
@@ -228,7 +228,7 @@ export default function EditarInterviniente() {
   if (!persona) {
     return (
       <p role="alert" className="font-sans text-sm text-estado-error">
-        {error ?? "Interviniente no encontrado."}
+        {error ?? "Capturado/aprehendido no encontrado."}
       </p>
     );
   }
@@ -244,7 +244,7 @@ export default function EditarInterviniente() {
             href={`/procedimientos/${id}/intervinientes`}
             className="font-sans text-sm text-institucional-700 hover:underline"
           >
-            ← Intervinientes
+            ← Capturados/Aprehendidos
           </Link>
           <h1 className="mt-1 font-display text-2xl text-institucional-950">
             {p.primerNombre} {p.primerApellido}
@@ -434,7 +434,7 @@ export default function EditarInterviniente() {
 
       <Seccion titulo="Descripción física y vestimenta">
         <div className="sm:col-span-2">
-          <Campo etiqueta="Descripción física y de vestimenta del interviniente">
+          <Campo etiqueta="Descripción física y de vestimenta">
             <textarea
               rows={2}
               className={claseInput}
@@ -647,7 +647,7 @@ export default function EditarInterviniente() {
         disabled={eliminando}
         className="font-sans text-xs text-estado-error hover:underline disabled:opacity-60"
       >
-        {eliminando ? "Eliminando…" : "Eliminar este interviniente"}
+        {eliminando ? "Eliminando…" : "Eliminar este capturado/aprehendido"}
       </button>
     </div>
   );

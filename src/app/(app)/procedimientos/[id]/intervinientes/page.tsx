@@ -24,14 +24,14 @@ export default function BloqueIntervinientes() {
     api
       .get<CapturadoResumen[]>(`/procedimientos/${id}/capturados`)
       .then(setIntervinientes)
-      .catch((err) => setError(err instanceof ApiError ? err.message : "No fue posible cargar los intervinientes."));
+      .catch((err) => setError(err instanceof ApiError ? err.message : "No fue posible cargar los capturados/aprehendidos."));
   }, [id]);
 
   return (
     <div>
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-display text-2xl text-institucional-950">2. Intervinientes</h1>
+          <h1 className="font-display text-2xl text-institucional-950">2. Capturados/Aprehendidos</h1>
           <p className="mt-1 font-sans text-sm text-institucional-700">
             Uno o varios capturados/aprehendidos asociados a este procedimiento.
           </p>
@@ -40,7 +40,7 @@ export default function BloqueIntervinientes() {
           href={`/procedimientos/${id}/intervinientes/nuevo`}
           className="rounded-md bg-acento px-4 py-2.5 font-sans text-sm font-semibold text-white shadow-sm transition-colors hover:bg-acento-hover"
         >
-          + Agregar interviniente
+          + Agregar capturado/aprehendido
         </Link>
       </div>
 
@@ -57,7 +57,7 @@ export default function BloqueIntervinientes() {
 
         {intervinientes?.length === 0 && (
           <div className="rounded-lg border border-dashed border-institucional-100 bg-white px-6 py-14 text-center">
-            <p className="font-display text-lg text-institucional-950">Aún no hay intervinientes</p>
+            <p className="font-display text-lg text-institucional-950">Aún no hay capturados ni aprehendidos</p>
             <p className="mt-1 font-sans text-sm text-institucional-700">
               Agrega al menos uno para poder continuar con el procedimiento.
             </p>

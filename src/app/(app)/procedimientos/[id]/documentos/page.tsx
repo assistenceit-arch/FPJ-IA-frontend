@@ -340,9 +340,9 @@ export default function BloqueDocumentos() {
         </p>
       )}
 
-      <Seccion titulo="Acta de Incautación" descripcion="Uno por cada interviniente que tenga elementos incautados a su cargo.">
+      <Seccion titulo="Acta de Incautación" descripcion="Uno por cada capturado/aprehendido que tenga elementos incautados a su cargo.">
         {intervinientes.length === 0 ? (
-          <p className="font-sans text-sm text-institucional-700">Aún no hay intervinientes registrados.</p>
+          <p className="font-sans text-sm text-institucional-700">Aún no hay capturados ni aprehendidos registrados.</p>
         ) : (
           intervinientes.map((p) => (
             <div key={p.id} className="flex items-center justify-between rounded-md border border-institucional-100 px-3 py-2">
@@ -364,7 +364,7 @@ export default function BloqueDocumentos() {
       {elementosColectivos.length > 0 && (
         <Seccion
           titulo="Acta de Incautación colectiva"
-          descripcion="Un solo documento por procedimiento, para los elementos sin individualizar — lista a todos los intervinientes como firmantes."
+          descripcion="Un solo documento por procedimiento, para los elementos sin individualizar — lista a todos los capturados/aprehendidos como firmantes."
         >
           <div className="flex items-center justify-between rounded-md border border-institucional-100 px-3 py-2">
             <span className="font-sans text-sm text-institucional-950">
@@ -382,9 +382,9 @@ export default function BloqueDocumentos() {
         </Seccion>
       )}
 
-      <Seccion titulo="FPJ-6 — Acta de Derechos" descripcion="Uno por cada interviniente (Capturado o Aprehendido).">
+      <Seccion titulo="FPJ-6 — Acta de Derechos" descripcion="Uno por cada capturado o aprehendido.">
         {intervinientes.length === 0 ? (
-          <p className="font-sans text-sm text-institucional-700">Aún no hay intervinientes registrados.</p>
+          <p className="font-sans text-sm text-institucional-700">Aún no hay capturados ni aprehendidos registrados.</p>
         ) : (
           intervinientes.map((p) => (
             <div key={p.id} className="flex items-center justify-between rounded-md border border-institucional-100 px-3 py-2">

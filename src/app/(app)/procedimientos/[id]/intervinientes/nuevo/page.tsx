@@ -38,7 +38,7 @@ export default function NuevoInterviniente() {
       });
       router.push(`/procedimientos/${id}/intervinientes/${nuevo.id}`);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "No fue posible crear el interviniente.");
+      setError(err instanceof ApiError ? err.message : "No fue posible crear el registro.");
     } finally {
       setCargando(false);
     }
@@ -53,9 +53,9 @@ export default function NuevoInterviniente() {
         href={`/procedimientos/${id}/intervinientes`}
         className="font-sans text-sm text-institucional-700 hover:underline"
       >
-        ← Intervinientes
+        ← Capturados/Aprehendidos
       </Link>
-      <h1 className="mt-3 font-display text-2xl text-institucional-950">Nuevo interviniente</h1>
+      <h1 className="mt-3 font-display text-2xl text-institucional-950">Nuevo capturado/aprehendido</h1>
       <p className="mt-1 font-sans text-sm text-institucional-700">
         El sistema determinará automáticamente si es Capturado o Aprehendido según la fecha de
         nacimiento (o la edad, si no la aporta). Podrás completar el resto de la información en la

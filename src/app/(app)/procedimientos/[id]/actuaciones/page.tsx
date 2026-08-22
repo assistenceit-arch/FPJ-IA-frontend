@@ -86,6 +86,13 @@ function FilaEsposas({
     trasladoCentroAsistencial: boolean | null;
     centroAsistencial: string | null;
     motivoTraslado: string | null;
+    // Adenda 2026-08-22: transversal, disponible para cualquier
+    // interviniente (antes exclusivo de SRPA y preguntado por la IA en
+    // cada narrativa).
+    tieneProcedimientosAnteriores: boolean | null;
+    descripcionProcedimientosAnteriores: string | null;
+    perteneceGrupoDelincuencial: boolean | null;
+    descripcionGrupoDelincuencial: string | null;
   };
 }) {
   // Adenda 2026-08-21: lectura de derechos individual por interviniente
@@ -128,6 +135,22 @@ function FilaEsposas({
   const [trasladoCentroAsistencial, setTrasladoCentroAsistencial] = useState<boolean | null>(
     persona.trasladoCentroAsistencial,
   );
+
+  // Adenda 2026-08-22: antecedentes y pertenencia a organización
+  // delincuencial -- transversal, disponible para cualquier
+  // interviniente, mismo criterio de "sin responder" que esposas.
+  const [tieneProcedimientosAnteriores, setTieneProcedimientosAnteriores] = useState<boolean | null>(
+    persona.tieneProcedimientosAnteriores,
+  );
+  const [descripcionProcedimientosAnteriores, setDescripcionProcedimientosAnteriores] = useState(
+    persona.descripcionProcedimientosAnteriores ?? "",
+  );
+  const [perteneceGrupoDelincuencial, setPerteneceGrupoDelincuencial] = useState<boolean | null>(
+    persona.perteneceGrupoDelincuencial,
+  );
+  const [descripcionGrupoDelincuencial, setDescripcionGrupoDelincuencial] = useState(
+    persona.descripcionGrupoDelincuencial ?? "",
+  );
   const [centroAsistencial, setCentroAsistencial] = useState(persona.centroAsistencial ?? "");
   const [motivoTraslado, setMotivoTraslado] = useState(persona.motivoTraslado ?? "");
 
@@ -152,6 +175,10 @@ function FilaEsposas({
       trasladoCentroAsistencial: boolean | null;
       centroAsistencial: string;
       motivoTraslado: string;
+      tieneProcedimientosAnteriores: boolean | null;
+      descripcionProcedimientosAnteriores: string;
+      perteneceGrupoDelincuencial: boolean | null;
+      descripcionGrupoDelincuencial: string;
     }) => {
       // Nada que guardar todavía si ninguna de las tres preguntas
       // "sin responder" (derechos/esposas/lesiones) se ha contestado —
@@ -191,6 +218,10 @@ function FilaEsposas({
       trasladoCentroAsistencial,
       centroAsistencial,
       motivoTraslado,
+      tieneProcedimientosAnteriores,
+      descripcionProcedimientosAnteriores,
+      perteneceGrupoDelincuencial,
+      descripcionGrupoDelincuencial,
     },
     guardar,
   );
@@ -350,6 +381,44 @@ function FilaEsposas({
           </>
         )}
       </div>
+
+      <div className="mt-3 space-y-3">
+        <p className="font-sans text-xs font-semibold uppercase tracking-wide text-institucional-700">
+          Antecedentes
+        </p>
+        <Campo etiqueta="¿Se tiene conocimiento de procedimientos anteriores con esta persona?">
+          <SiNo
+            valor={tieneProcedimientosAnteriores}
+            onChange={setTieneProcedimientosAnteriores}
+          />
+        </Campo>
+        {tieneProcedimientosAnteriores && (
+          <Campo etiqueta="Descripción" requerido>
+            <textarea
+              rows={2}
+              className={claseInput}
+              value={descripcionProcedimientosAnteriores}
+              onChange={(e) => setDescripcionProcedimientosAnteriores(e.target.value)}
+            />
+          </Campo>
+        )}
+        <Campo etiqueta="¿Se tiene conocimiento de que pertenece a una organización o grupo delincuencial?">
+          <SiNo
+            valor={perteneceGrupoDelincuencial}
+            onChange={setPerteneceGrupoDelincuencial}
+          />
+        </Campo>
+        {perteneceGrupoDelincuencial && (
+          <Campo etiqueta="Descripción" requerido>
+            <textarea
+              rows={2}
+              className={claseInput}
+              value={descripcionGrupoDelincuencial}
+              onChange={(e) => setDescripcionGrupoDelincuencial(e.target.value)}
+            />
+          </Campo>
+        )}
+      </div>
     </div>
   );
 }
@@ -376,6 +445,10 @@ interface IntervinienteResumen {
   trasladoCentroAsistencial: boolean | null;
   centroAsistencial: string | null;
   motivoTraslado: string | null;
+  tieneProcedimientosAnteriores: boolean | null;
+  descripcionProcedimientosAnteriores: string | null;
+  perteneceGrupoDelincuencial: boolean | null;
+  descripcionGrupoDelincuencial: string | null;
 }
 
 export default function BloqueActuaciones() {
@@ -509,8 +582,8 @@ export default function BloqueActuaciones() {
         </p>
         <p className="mt-1 font-sans text-xs text-institucional-700">
           Este es el estimado registrado al crear el procedimiento. La hora de captura real de
-          cada interviniente (lectura de derechos) se diligencia de forma individual desde su
-          ficha en Intervinientes — puede diferir de un interviniente a otro si no fueron
+          cada capturado o aprehendido (lectura de derechos) se diligencia de forma individual desde su
+          ficha en Capturados/Aprehendidos — puede diferir de una persona a otra si no fueron
           capturados en el mismo momento.
         </p>
       </Seccion>
@@ -576,14 +649,14 @@ export default function BloqueActuaciones() {
       <div>
         <h2 className="font-display text-lg text-institucional-950">Esposas y estado físico</h2>
         <p className="mt-1 font-sans text-sm text-institucional-700">
-          Preguntas individuales por interviniente — en procedimientos con varias personas, cada
+          Preguntas individuales por persona — en procedimientos con varias personas, cada
           una se responde por separado. El uso de esposas solo aplica a Aprehendidos (menores de
-          edad); las lesiones aplican a cualquier interviniente.
+          edad); las lesiones aplican a cualquier capturado o aprehendido.
         </p>
         <div className="mt-3 space-y-3">
           {intervinientes.length === 0 ? (
             <p className="rounded-lg border border-dashed border-institucional-100 bg-white px-4 py-6 text-center font-sans text-sm text-institucional-700">
-              No hay intervinientes registrados en este procedimiento todavía.
+              No hay capturados ni aprehendidos registrados en este procedimiento todavía.
             </p>
           ) : (
             intervinientes.map((persona) => (

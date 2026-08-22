@@ -125,7 +125,7 @@ export default function LayoutProcedimiento({ children }: { children: React.Reac
         {
           slug: "intervinientes",
           numero: 2,
-          titulo: "Intervinientes",
+          titulo: "Capturados/Aprehendidos",
           estado: estadoIntervinientes(capturados?.length ?? null),
         },
         { slug: "lugar", numero: 3, titulo: "Lugar del procedimiento", estado: estadoLugar(lugar) },
@@ -231,7 +231,7 @@ export default function LayoutProcedimiento({ children }: { children: React.Reac
         {edicionDesbloqueada && (
           <div className="mb-4 rounded-md border border-estado-error/30 bg-estado-error/10 px-4 py-3 font-sans text-sm text-institucional-900">
             🔓 Un administrador desbloqueó temporalmente la edición de este procedimiento. Puedes
-            corregir la información de los Bloques 1 a 6, eliminar intervinientes o elementos, y
+            corregir la información de los Bloques 1 a 6, eliminar capturados/aprehendidos o elementos, y
             regenerar los documentos del Bloque 7 con la información corregida. Avisa al
             administrador cuando termines para que vuelva a bloquearlo.
           </div>

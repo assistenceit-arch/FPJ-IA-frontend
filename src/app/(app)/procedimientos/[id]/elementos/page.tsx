@@ -117,7 +117,7 @@ export default function BloqueElementos() {
         <div>
           <h1 className="font-display text-2xl text-institucional-950">4. Elementos incautados</h1>
           <p className="mt-1 font-sans text-sm text-institucional-700">
-            Cada elemento se asocia a un interviniente específico, o queda "sin individualizar"
+            Cada elemento se asocia a un capturado/aprehendido específico, o queda "sin individualizar"
             cuando no es posible atribuirlo a uno en particular (ej. hallado en un lugar común).
           </p>
         </div>
@@ -141,7 +141,7 @@ export default function BloqueElementos() {
       {intervinientes.length === 0 && (
         <div className="mt-6 rounded-lg border border-dashed border-institucional-100 bg-white px-6 py-14 text-center">
           <p className="font-display text-lg text-institucional-950">
-            Primero registra al menos un interviniente
+            Primero registra al menos un capturado/aprehendido
           </p>
           <p className="mt-1 font-sans text-sm text-institucional-700">
             Los elementos incautados se asocian siempre a una persona (Bloque 2).
@@ -174,7 +174,7 @@ export default function BloqueElementos() {
             </h2>
             <p className="mt-1 font-sans text-xs text-institucional-700">
               Hallados en un lugar común (ej. interior de un vehículo), sin poder atribuirse a uno
-              de los intervinientes en particular.
+              de los capturados/aprehendidos en particular.
             </p>
             <ul className="mt-2 divide-y divide-institucional-100 rounded-lg border border-institucional-100 bg-white shadow-sm">
               {elementosColectivos.map((el) => (
@@ -365,7 +365,7 @@ function FormularioNuevoElemento({
       className="mt-6 space-y-4 rounded-lg border border-institucional-100 bg-white p-6 shadow-sm"
     >
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <Campo etiqueta="Interviniente" requerido>
+        <Campo etiqueta="Capturado/Aprehendido" requerido>
           <select className={claseInput} value={capturadoId} onChange={(e) => setCapturadoId(e.target.value)}>
             {intervinientes.map((p) => (
               <option key={p.id} value={p.id}>

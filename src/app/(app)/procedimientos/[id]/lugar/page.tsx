@@ -15,7 +15,30 @@ const LUGAR_VACIO: LugarProcedimiento = {
   barrio: "",
   direccion: "",
   caracteristicas: "",
+  existenCamaras: null,
+  descripcionCamaras: "",
 };
+
+function SiNo({ valor, onChange }: { valor: boolean | null | undefined; onChange: (v: boolean) => void }) {
+  return (
+    <div className="flex gap-3">
+      {[true, false].map((v) => (
+        <button
+          type="button"
+          key={String(v)}
+          onClick={() => onChange(v)}
+          className={`rounded-md border px-4 py-2 font-sans text-sm transition-colors ${
+            valor === v
+              ? "border-acento bg-acento-light text-acento-hover"
+              : "border-institucional-100 text-institucional-700 hover:bg-institucional-50"
+          }`}
+        >
+          {v ? "Sí" : "No"}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 function Campo({
   etiqueta,
@@ -55,7 +78,16 @@ export default function BloqueLugar() {
         if (l) {
           setLugar({
             ...LUGAR_VACIO,
-            ...soloClaves(l, ["departamento", "municipio", "localidad", "barrio", "direccion", "caracteristicas"]),
+            ...soloClaves(l, [
+              "departamento",
+              "municipio",
+              "localidad",
+              "barrio",
+              "direccion",
+              "caracteristicas",
+              "existenCamaras",
+              "descripcionCamaras",
+            ]),
           });
         }
         setCargando(false);
@@ -156,6 +188,26 @@ export default function BloqueLugar() {
             />
           </Campo>
         </div>
+        <div className="sm:col-span-2">
+          <Campo etiqueta="¿Existen cámaras en el lugar de los hechos?">
+            <SiNo
+              valor={lugar.existenCamaras}
+              onChange={(v) => setLugar({ ...lugar, existenCamaras: v })}
+            />
+          </Campo>
+        </div>
+        {lugar.existenCamaras && (
+          <div className="sm:col-span-2">
+            <Campo etiqueta="Descripción" requerido>
+              <input
+                className={claseInput}
+                placeholder="Ej. cámaras privadas del establecimiento, cámaras del sistema de vigilancia del sector"
+                value={lugar.descripcionCamaras ?? ""}
+                onChange={(e) => setLugar({ ...lugar, descripcionCamaras: e.target.value })}
+              />
+            </Campo>
+          </div>
+        )}
       </div>
 
       <p className="mt-3 font-sans text-xs text-institucional-700">

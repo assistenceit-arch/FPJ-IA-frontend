@@ -44,6 +44,11 @@ export interface LugarProcedimiento {
   barrio: string;
   direccion: string;
   caracteristicas?: string;
+  // Adenda 2026-08-22: existencia de cámaras -- antes la preguntaba la
+  // IA en cada narrativa (bug real reportado tras caso en vivo), ahora
+  // es un campo estructurado.
+  existenCamaras?: boolean | null;
+  descripcionCamaras?: string | null;
 }
 
 export type EstadoBloque = "vacio" | "pendiente" | "completo";
