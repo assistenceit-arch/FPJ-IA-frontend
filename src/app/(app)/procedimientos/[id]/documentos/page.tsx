@@ -138,6 +138,7 @@ export default function BloqueDocumentos() {
   const [elementosColectivos, setElementosColectivos] = useState<ElementoResumen[]>([]);
   const [generados, setGenerados] = useState<DocumentoGenerado[]>([]);
   const [pago, setPago] = useState<Pago | null>(null);
+  const [exoneradoPago, setExoneradoPago] = useState(false);
   const [edicionDesbloqueada, setEdicionDesbloqueada] = useState(false);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -155,13 +156,14 @@ export default function BloqueDocumentos() {
       api.get<CapturadoResumen[]>(`/procedimientos/${id}/capturados`),
       api.get<DocumentoGenerado[]>(`/procedimientos/${id}/documentos`),
       api.get<Pago | null>(`/procedimientos/${id}/pago`).catch(() => null),
-      api.get<{ edicionDesbloqueada: boolean }>(`/procedimientos/${id}`).catch(() => null),
+      api.get<{ edicionDesbloqueada: boolean; exoneradoPago: boolean }>(`/procedimientos/${id}`).catch(() => null),
       api.get<ElementoResumen[]>(`/procedimientos/${id}/elementos-colectivos`).catch(() => []),
     ]);
     setIntervinientes(personas);
     setGenerados(docs);
     setPago(estadoPago);
     setEdicionDesbloqueada(procedimiento?.edicionDesbloqueada ?? false);
+    setExoneradoPago(procedimiento?.exoneradoPago ?? false);
     setElementosColectivos(colectivos);
     const listas = await Promise.all(
       personas.map((p) => api.get<ElementoResumen[]>(`/procedimientos/${id}/capturados/${p.id}/elementos`)),
@@ -331,13 +333,29 @@ export default function BloqueDocumentos() {
         </p>
       )}
 
-      {pago?.estadoPago !== "Verificado" && (
+      {pago?.estadoPago !== "Verificado" && !exoneradoPago && (
         <p className="rounded-md bg-estado-pendiente/10 px-3 py-2.5 font-sans text-sm text-estado-pendiente">
           {!pago && "Este procedimiento no tiene un pago registrado. "}
           {pago?.estadoPago === "Pendiente" && "El pago está registrado pero aún no ha sido verificado por un administrador. "}
           {pago?.estadoPago === "Rechazado" && "El pago fue rechazado — registra uno nuevo en el Bloque 7. "}
           No podrás generar documentos hasta que el pago quede <strong>Verificado</strong> (Bloque 7).
         </p>
+      )}
+
+      {(pago?.estadoPago === "Verificado" || exoneradoPago) && (
+        <div className="rounded-md border-2 border-estado-completo bg-estado-completo/10 px-4 py-4">
+          <p className="font-display text-lg font-bold text-estado-completo">
+            Ya puede generar y descargar sus documentos
+          </p>
+          <p className="mt-3 font-sans text-sm font-bold uppercase tracking-wide text-institucional-950">
+            Recuerde:
+          </p>
+          <p className="mt-1 font-sans text-base font-semibold leading-snug text-institucional-950">
+            ⚠️ La exactitud y coherencia del contenido de estos documentos con los hechos del
+            procedimiento debe ser verificada por el funcionario antes de su uso oficial. Esta
+            responsabilidad es indelegable.
+          </p>
+        </div>
       )}
 
       <Seccion titulo="Acta de Incautación" descripcion="Uno por cada capturado/aprehendido que tenga elementos incautados a su cargo.">
