@@ -57,22 +57,16 @@ export default function PaginaLogin() {
           fill
           priority
           sizes="(min-width: 1024px) 60vw, 0px"
-          className="object-cover opacity-80"
+          className="object-cover"
         />
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-institucional-950 via-institucional-950/70 to-institucional-950/20" />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-institucional-950/90 via-institucional-950/10 to-transparent" />
         <div className="relative">
           <p className="font-sans text-xs uppercase tracking-[0.25em] text-institucional-100/70">
             Gestión y Documentación Operativa
           </p>
-          <h1 className="mt-6 max-w-md font-display text-4xl leading-tight text-institucional-50">
-            Un solo formulario. Cinco documentos oficiales, siempre coherentes entre sí.
-          </h1>
         </div>
-        <div className="relative space-y-3 border-t border-institucional-700/60 pt-6 font-sans text-sm text-institucional-100/70">
-          <p>Acta de Incautación · FPJ-5 · FPJ-6 · FPJ-7 · FPJ-8</p>
-          <p className="text-institucional-100/50">
-            La información se captura una única vez y se reutiliza automáticamente en cada documento.
-          </p>
+        <div className="relative font-sans text-sm text-institucional-100/50">
+          <p>La información se captura una única vez y se reutiliza automáticamente en cada documento.</p>
         </div>
       </div>
 
