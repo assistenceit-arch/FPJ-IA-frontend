@@ -17,6 +17,9 @@ export const DELITOS_SOPORTADOS = [
   "Receptación",
   "Homicidio",
   "Suministro a Menor",
+  "Uso de Documento Falso",
+  "Falsedad Personal",
+  "Tráfico de Moneda Falsa",
 ] as const;
 
 export type DelitoSoportado = (typeof DELITOS_SOPORTADOS)[number];
@@ -31,3 +34,6 @@ export const DELITO_VIF: DelitoSoportado = "Violencia Intrafamiliar";
 export const DELITO_RECEPTACION: DelitoSoportado = "Receptación";
 export const DELITO_HOMICIDIO: DelitoSoportado = "Homicidio";
 export const DELITO_SUMINISTRO_MENOR: DelitoSoportado = "Suministro a Menor";
+export const DELITO_USO_DOCUMENTO_FALSO: DelitoSoportado = "Uso de Documento Falso";
+export const DELITO_FALSEDAD_PERSONAL: DelitoSoportado = "Falsedad Personal";
+export const DELITO_TRAFICO_MONEDA_FALSA: DelitoSoportado = "Tráfico de Moneda Falsa";

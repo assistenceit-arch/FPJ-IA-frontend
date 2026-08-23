@@ -3,7 +3,15 @@
 import { useEffect, useState, FormEvent } from "react";
 import { useParams } from "next/navigation";
 import { api, ApiError } from "@/lib/api";
-import { DELITO_ARMAS, DELITO_ESTUPEFACIENTES, DELITO_HURTO, DELITO_RECEPTACION } from "@/lib/delitos";
+import {
+  DELITO_ARMAS,
+  DELITO_ESTUPEFACIENTES,
+  DELITO_HURTO,
+  DELITO_RECEPTACION,
+  DELITO_USO_DOCUMENTO_FALSO,
+  DELITO_FALSEDAD_PERSONAL,
+  DELITO_TRAFICO_MONEDA_FALSA,
+} from "@/lib/delitos";
 
 interface VictimaResumen {
   id: string;
@@ -270,6 +278,15 @@ function FormularioNuevoElemento({
   const [denuncianteNombre, setDenuncianteNombre] = useState("");
   const [denuncianteDocumento, setDenuncianteDocumento] = useState("");
   const [denuncianteTelefono, setDenuncianteTelefono] = useState("");
+  // Adenda 2026-08-23 (delitos contra la fe pública: Uso de Documento
+  // Falso, Falsedad Personal, Tráfico de Moneda Falsa): campos
+  // compartidos entre los tres.
+  const esFePublica =
+    delito === DELITO_USO_DOCUMENTO_FALSO ||
+    delito === DELITO_FALSEDAD_PERSONAL ||
+    delito === DELITO_TRAFICO_MONEDA_FALSA;
+  const [contextoExhibicion, setContextoExhibicion] = useState("");
+  const [criteriosSospecha, setCriteriosSospecha] = useState("");
   const [capturadoId, setCapturadoId] = useState(intervinientes[0]?.id ?? "");
   const [tipoElemento, setTipoElemento] = useState<"SUSTANCIA" | "DINERO" | "CELULAR" | "ARMA" | "OTRO">(
     esArmas ? "ARMA" : "SUSTANCIA",
@@ -328,6 +345,10 @@ function FormularioNuevoElemento({
         return;
       }
     }
+    if (esFePublica && (!contextoExhibicion.trim() || !criteriosSospecha.trim())) {
+      setError("Indica el contexto y los criterios de sospecha para este elemento.");
+      return;
+    }
     setCargando(true);
     try {
       const cuerpo: Record<string, unknown> = {
@@ -364,6 +385,12 @@ function FormularioNuevoElemento({
             fuenteVerificacionHurto === "DENUNCIA" ? denuncianteDocumento.trim() || undefined : undefined,
           denuncianteTelefono:
             fuenteVerificacionHurto === "DENUNCIA" ? denuncianteTelefono.trim() || undefined : undefined,
+        });
+      }
+      if (esFePublica) {
+        Object.assign(cuerpo, {
+          contextoExhibicion: contextoExhibicion.trim(),
+          criteriosSospecha: criteriosSospecha.trim(),
         });
       }
       if (tipoElemento === "SUSTANCIA") {
@@ -792,6 +819,53 @@ function FormularioNuevoElemento({
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {esFePublica && (
+        <div className="rounded-md border border-institucional-100 bg-institucional-50 p-4">
+          <p className="mb-3 font-sans text-xs font-semibold uppercase tracking-wide text-institucional-700">
+            Datos propios de este delito
+          </p>
+          <div className="space-y-4">
+            <Campo
+              etiqueta={
+                delito === DELITO_TRAFICO_MONEDA_FALSA
+                  ? "¿En qué contexto se interceptó?"
+                  : "¿Por qué motivo le fue exhibido/presentado?"
+              }
+              requerido
+            >
+              <textarea
+                required
+                rows={2}
+                className={claseInput}
+                placeholder={
+                  delito === DELITO_TRAFICO_MONEDA_FALSA
+                    ? "Ej. la persona lo estaba usando para pagar una transacción"
+                    : "Ej. control de identidad, requerimiento durante otro procedimiento"
+                }
+                value={contextoExhibicion}
+                onChange={(e) => setContextoExhibicion(e.target.value)}
+              />
+            </Campo>
+            <Campo
+              etiqueta={
+                delito === DELITO_FALSEDAD_PERSONAL
+                  ? "¿Qué actividades de corroboración se realizaron?"
+                  : "¿Qué criterios hicieron sospechar de la falsedad?"
+              }
+              requerido
+            >
+              <textarea
+                required
+                rows={2}
+                className={claseInput}
+                value={criteriosSospecha}
+                onChange={(e) => setCriteriosSospecha(e.target.value)}
+              />
+            </Campo>
+          </div>
         </div>
       )}
 
