@@ -3,7 +3,7 @@
 import { useEffect, useState, FormEvent } from "react";
 import { useParams } from "next/navigation";
 import { api, ApiError } from "@/lib/api";
-import { DELITO_ARMAS, DELITO_ESTUPEFACIENTES, DELITO_HURTO } from "@/lib/delitos";
+import { DELITO_ARMAS, DELITO_ESTUPEFACIENTES, DELITO_HURTO, DELITO_RECEPTACION } from "@/lib/delitos";
 
 interface VictimaResumen {
   id: string;
@@ -256,6 +256,20 @@ function FormularioNuevoElemento({
   const [victimaId, setVictimaId] = useState("");
   const [recuperado, setRecuperado] = useState<"" | "SI" | "NO">("");
   const [recuperadoPor, setRecuperadoPor] = useState("");
+  // Adenda 2026-08-23 (módulo Receptación): campos exclusivos de este
+  // delito.
+  const esReceptacion = delito === DELITO_RECEPTACION;
+  const [fuenteVerificacionHurto, setFuenteVerificacionHurto] = useState<"" | "APLICATIVO" | "DENUNCIA">(
+    "",
+  );
+  const [nombreAplicativo, setNombreAplicativo] = useState("");
+  const [numeroReporteAplicativo, setNumeroReporteAplicativo] = useState("");
+  const [numeroDenuncia, setNumeroDenuncia] = useState("");
+  const [entidadDenuncia, setEntidadDenuncia] = useState("");
+  const [fechaDenuncia, setFechaDenuncia] = useState("");
+  const [denuncianteNombre, setDenuncianteNombre] = useState("");
+  const [denuncianteDocumento, setDenuncianteDocumento] = useState("");
+  const [denuncianteTelefono, setDenuncianteTelefono] = useState("");
   const [capturadoId, setCapturadoId] = useState(intervinientes[0]?.id ?? "");
   const [tipoElemento, setTipoElemento] = useState<"SUSTANCIA" | "DINERO" | "CELULAR" | "ARMA" | "OTRO">(
     esArmas ? "ARMA" : "SUSTANCIA",
@@ -300,6 +314,20 @@ function FormularioNuevoElemento({
       setError("Indica por quién fue recuperado el bien (Policía, víctima o comunidad).");
       return;
     }
+    if (esReceptacion) {
+      if (fuenteVerificacionHurto === "") {
+        setError("Indica cómo se estableció que el elemento tiene reporte de hurto.");
+        return;
+      }
+      if (fuenteVerificacionHurto === "APLICATIVO" && !nombreAplicativo.trim()) {
+        setError("Indica el nombre del aplicativo consultado.");
+        return;
+      }
+      if (fuenteVerificacionHurto === "DENUNCIA" && (!numeroDenuncia.trim() || !entidadDenuncia.trim())) {
+        setError("Indica el número de la denuncia y la entidad ante la cual fue presentada.");
+        return;
+      }
+    }
     setCargando(true);
     try {
       const cuerpo: Record<string, unknown> = {
@@ -312,6 +340,30 @@ function FormularioNuevoElemento({
           victimaId: victimaId || undefined,
           recuperado: recuperado === "" ? undefined : recuperado === "SI",
           recuperadoPor: recuperado === "SI" ? recuperadoPor.trim() : undefined,
+        });
+      }
+      if (esReceptacion) {
+        Object.assign(cuerpo, {
+          victimaId: victimaId || undefined,
+          fuenteVerificacionHurto,
+          nombreAplicativo:
+            fuenteVerificacionHurto === "APLICATIVO" ? nombreAplicativo.trim() : undefined,
+          numeroReporteAplicativo:
+            fuenteVerificacionHurto === "APLICATIVO"
+              ? numeroReporteAplicativo.trim() || undefined
+              : undefined,
+          numeroDenuncia: fuenteVerificacionHurto === "DENUNCIA" ? numeroDenuncia.trim() : undefined,
+          entidadDenuncia: fuenteVerificacionHurto === "DENUNCIA" ? entidadDenuncia.trim() : undefined,
+          fechaDenuncia:
+            fuenteVerificacionHurto === "DENUNCIA" && fechaDenuncia
+              ? `${fechaDenuncia}T00:00:00.000Z`
+              : undefined,
+          denuncianteNombre:
+            fuenteVerificacionHurto === "DENUNCIA" ? denuncianteNombre.trim() || undefined : undefined,
+          denuncianteDocumento:
+            fuenteVerificacionHurto === "DENUNCIA" ? denuncianteDocumento.trim() || undefined : undefined,
+          denuncianteTelefono:
+            fuenteVerificacionHurto === "DENUNCIA" ? denuncianteTelefono.trim() || undefined : undefined,
         });
       }
       if (tipoElemento === "SUSTANCIA") {
@@ -631,6 +683,115 @@ function FormularioNuevoElemento({
               </Campo>
             )}
           </div>
+        </div>
+      )}
+
+      {esReceptacion && (
+        <div className="rounded-md border border-institucional-100 bg-institucional-50 p-4">
+          <p className="mb-3 font-sans text-xs font-semibold uppercase tracking-wide text-institucional-700">
+            Datos propios de Receptación
+          </p>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Campo etiqueta="Víctima original del hurto (si se identificó)">
+              <select className={claseInput} value={victimaId} onChange={(e) => setVictimaId(e.target.value)}>
+                <option value="">Sin víctima identificada / no aplica</option>
+                {victimas.map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {v.primerNombre} {v.primerApellido}
+                  </option>
+                ))}
+              </select>
+            </Campo>
+            <Campo etiqueta="¿Cómo se estableció que tiene reporte de hurto?" requerido>
+              <select
+                required
+                className={claseInput}
+                value={fuenteVerificacionHurto}
+                onChange={(e) => setFuenteVerificacionHurto(e.target.value as typeof fuenteVerificacionHurto)}
+              >
+                <option value="">Selecciona…</option>
+                <option value="APLICATIVO">Consulta en aplicativo policial</option>
+                <option value="DENUNCIA">Denuncia presentada por un tercero</option>
+              </select>
+            </Campo>
+          </div>
+
+          {fuenteVerificacionHurto === "APLICATIVO" && (
+            <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <Campo etiqueta="Nombre del aplicativo consultado" requerido>
+                <input
+                  required
+                  className={claseInput}
+                  value={nombreAplicativo}
+                  onChange={(e) => setNombreAplicativo(e.target.value)}
+                />
+              </Campo>
+              <Campo etiqueta="Número de reporte encontrado (si está disponible)">
+                <input
+                  className={claseInput}
+                  value={numeroReporteAplicativo}
+                  onChange={(e) => setNumeroReporteAplicativo(e.target.value)}
+                />
+              </Campo>
+            </div>
+          )}
+
+          {fuenteVerificacionHurto === "DENUNCIA" && (
+            <div className="mt-4 space-y-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <Campo etiqueta="Número de la denuncia" requerido>
+                  <input
+                    required
+                    className={claseInput}
+                    value={numeroDenuncia}
+                    onChange={(e) => setNumeroDenuncia(e.target.value)}
+                  />
+                </Campo>
+                <Campo etiqueta="Entidad ante la cual fue presentada" requerido>
+                  <input
+                    required
+                    className={claseInput}
+                    value={entidadDenuncia}
+                    onChange={(e) => setEntidadDenuncia(e.target.value)}
+                  />
+                </Campo>
+                <Campo etiqueta="Fecha de la denuncia">
+                  <input
+                    type="date"
+                    className={claseInput}
+                    value={fechaDenuncia}
+                    onChange={(e) => setFechaDenuncia(e.target.value)}
+                  />
+                </Campo>
+              </div>
+              <p className="font-sans text-xs font-semibold uppercase tracking-wide text-institucional-700">
+                Datos de quien presentó la denuncia (si los aportó — no es necesariamente la víctima)
+              </p>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <Campo etiqueta="Nombre">
+                  <input
+                    className={claseInput}
+                    value={denuncianteNombre}
+                    onChange={(e) => setDenuncianteNombre(e.target.value)}
+                  />
+                </Campo>
+                <Campo etiqueta="Documento">
+                  <input
+                    className={claseInput}
+                    value={denuncianteDocumento}
+                    onChange={(e) => setDenuncianteDocumento(e.target.value)}
+                  />
+                </Campo>
+                <Campo etiqueta="Teléfono">
+                  <input
+                    className={claseInput}
+                    value={denuncianteTelefono}
+                    onChange={(e) => setDenuncianteTelefono(e.target.value)}
+                  />
+                </Campo>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

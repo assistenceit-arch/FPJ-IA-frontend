@@ -14,6 +14,7 @@ export const DELITOS_SOPORTADOS = [
   "Lesiones Personales",
   "Violencia contra Servidor Público",
   "Violencia Intrafamiliar",
+  "Receptación",
 ] as const;
 
 export type DelitoSoportado = (typeof DELITOS_SOPORTADOS)[number];
@@ -25,3 +26,4 @@ export const DELITO_HURTO: DelitoSoportado = "Hurto";
 export const DELITO_LESIONES: DelitoSoportado = "Lesiones Personales";
 export const DELITO_VCSP: DelitoSoportado = "Violencia contra Servidor Público";
 export const DELITO_VIF: DelitoSoportado = "Violencia Intrafamiliar";
+export const DELITO_RECEPTACION: DelitoSoportado = "Receptación";
