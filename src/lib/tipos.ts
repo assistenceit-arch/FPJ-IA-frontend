@@ -190,4 +190,11 @@ export interface Victima {
   existenAmenazas: boolean | null;
   descripcionAmenazas: string | null;
   lugarEntregaExigido: string | null;
+  // Adenda 2026-08-23 (módulo Daño en Bien Ajeno o del Estado):
+  // exclusivo de este delito.
+  descripcionBienDanado: string | null;
+  mecanismoDano: string | null;
+  valorEstimadoDano: string | null;
+  esBienEstatal: boolean | null;
+  entidadPropietariaBien: string | null;
 }

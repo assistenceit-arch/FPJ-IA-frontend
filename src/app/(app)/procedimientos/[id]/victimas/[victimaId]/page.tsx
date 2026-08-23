@@ -9,7 +9,14 @@ import { IndicadorGuardado } from "@/components/IndicadorGuardado";
 import { soloClaves } from "@/lib/limpiar";
 import { CampoHora } from "@/components/CampoHora";
 import type { Victima } from "@/lib/tipos";
-import { DELITO_VCSP, DELITO_VIF, DELITO_HOMICIDIO, DELITO_SECUESTRO, DELITO_EXTORSION } from "@/lib/delitos";
+import {
+  DELITO_VCSP,
+  DELITO_VIF,
+  DELITO_HOMICIDIO,
+  DELITO_SECUESTRO,
+  DELITO_EXTORSION,
+  DELITO_DANO_EN_BIEN,
+} from "@/lib/delitos";
 
 function Campo({
   etiqueta,
@@ -111,6 +118,11 @@ const CLAVES_GUARDABLES = [
   "existenAmenazas",
   "descripcionAmenazas",
   "lugarEntregaExigido",
+  "descripcionBienDanado",
+  "mecanismoDano",
+  "valorEstimadoDano",
+  "esBienEstatal",
+  "entidadPropietariaBien",
 ] as const;
 
 export default function EditarVictima() {
@@ -581,6 +593,49 @@ export default function EditarVictima() {
             Si hubo varias exigencias en momentos distintos, resuma toda la secuencia en estos
             mismos campos — no es necesario registrar cada una por separado.
           </p>
+        </Seccion>
+      )}
+
+      {delito === DELITO_DANO_EN_BIEN && (
+        <Seccion titulo="Bien dañado">
+          <div className="sm:col-span-2">
+            <Campo etiqueta="Descripción del bien dañado" requerido>
+              <textarea
+                rows={2}
+                className={claseInput}
+                placeholder="Ej. vehículo, fachada, muro, vidrio"
+                value={p.descripcionBienDanado ?? ""}
+                onChange={(e) => set({ descripcionBienDanado: e.target.value || null })}
+              />
+            </Campo>
+          </div>
+          <Campo etiqueta="¿Cómo se causó el daño?" requerido>
+            <input
+              className={claseInput}
+              value={p.mecanismoDano ?? ""}
+              onChange={(e) => set({ mecanismoDano: e.target.value || null })}
+            />
+          </Campo>
+          <Campo etiqueta="Valor estimado del daño">
+            <input
+              className={claseInput}
+              placeholder="Ej. aproximadamente $500.000"
+              value={p.valorEstimadoDano ?? ""}
+              onChange={(e) => set({ valorEstimadoDano: e.target.value || null })}
+            />
+          </Campo>
+          <Campo etiqueta="¿El bien pertenece al Estado?">
+            <SiNo valor={p.esBienEstatal} onChange={(v) => set({ esBienEstatal: v })} />
+          </Campo>
+          {p.esBienEstatal && (
+            <Campo etiqueta="Entidad propietaria" requerido>
+              <input
+                className={claseInput}
+                value={p.entidadPropietariaBien ?? ""}
+                onChange={(e) => set({ entidadPropietariaBien: e.target.value || null })}
+              />
+            </Campo>
+          )}
         </Seccion>
       )}
 
