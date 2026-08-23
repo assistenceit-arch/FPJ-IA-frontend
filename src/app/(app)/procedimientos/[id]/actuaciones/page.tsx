@@ -562,7 +562,7 @@ export default function BloqueActuaciones() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-display text-2xl text-institucional-950">5. Actuaciones procedimentales</h1>
+          <h1 className="font-display text-2xl text-institucional-950">4. Actuaciones procedimentales</h1>
           <p className="mt-1 font-sans text-sm text-institucional-700">
             Todo lo ocurrido desde la captura/aprehensión hasta la puesta a disposición.
           </p>

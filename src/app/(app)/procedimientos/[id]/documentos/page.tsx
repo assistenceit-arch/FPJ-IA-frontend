@@ -317,7 +317,7 @@ export default function BloqueDocumentos() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="font-display text-2xl text-institucional-950">7. Documentos</h1>
+        <h1 className="font-display text-2xl text-institucional-950">8. Documentos</h1>
         <p className="mt-1 font-sans text-sm text-institucional-700">
           Genera y descarga los documentos oficiales a partir de la información diligenciada en los
           bloques anteriores. Cada documento se valida en el servidor — si falta algo, verás el motivo
@@ -335,8 +335,8 @@ export default function BloqueDocumentos() {
         <p className="rounded-md bg-estado-pendiente/10 px-3 py-2.5 font-sans text-sm text-estado-pendiente">
           {!pago && "Este procedimiento no tiene un pago registrado. "}
           {pago?.estadoPago === "Pendiente" && "El pago está registrado pero aún no ha sido verificado por un administrador. "}
-          {pago?.estadoPago === "Rechazado" && "El pago fue rechazado — registra uno nuevo en el Bloque 8. "}
-          No podrás generar documentos hasta que el pago quede <strong>Verificado</strong> (Bloque 8).
+          {pago?.estadoPago === "Rechazado" && "El pago fue rechazado — registra uno nuevo en el Bloque 7. "}
+          No podrás generar documentos hasta que el pago quede <strong>Verificado</strong> (Bloque 7).
         </p>
       )}
 

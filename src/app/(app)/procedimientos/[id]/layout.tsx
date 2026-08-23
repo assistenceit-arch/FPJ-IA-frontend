@@ -73,17 +73,20 @@ export default function LayoutProcedimiento({ children }: { children: React.Reac
       ]);
 
       // El total de elementos incautados se calcula sumando los de cada
-      // interviniente (no hay un endpoint agregado a nivel de
-      // procedimiento). Si no hay intervinientes todavía, queda en null
-      // (= "vacío"), igual que Intervinientes.
+      // interviniente MÁS los "sin individualizar" (no hay un endpoint
+      // agregado a nivel de procedimiento). Si no hay intervinientes
+      // todavía, queda en null (= "vacío"), igual que Intervinientes.
       let cantidadElementos: number | null = null;
       if (capturados && capturados.length > 0) {
-        const listas = await Promise.all(
-          capturados.map((c) =>
-            api.get<unknown[]>(`/procedimientos/${id}/capturados/${c.id}/elementos`).catch(() => []),
+        const [listas, colectivos] = await Promise.all([
+          Promise.all(
+            capturados.map((c) =>
+              api.get<unknown[]>(`/procedimientos/${id}/capturados/${c.id}/elementos`).catch(() => []),
+            ),
           ),
-        );
-        cantidadElementos = listas.reduce((total, lista) => total + lista.length, 0);
+          api.get<unknown[]>(`/procedimientos/${id}/elementos-colectivos`).catch(() => []),
+        ]);
+        cantidadElementos = listas.reduce((total, lista) => total + lista.length, colectivos.length);
       } else if (capturados && capturados.length === 0) {
         cantidadElementos = 0;
       }
@@ -129,10 +132,9 @@ export default function LayoutProcedimiento({ children }: { children: React.Reac
           estado: estadoIntervinientes(capturados?.length ?? null),
         },
         { slug: "lugar", numero: 3, titulo: "Lugar del procedimiento", estado: estadoLugar(lugar) },
-        { slug: "elementos", numero: 4, titulo: "Elementos incautados", estado: estadoElementos(cantidadElementos) },
         {
           slug: "actuaciones",
-          numero: 5,
+          numero: 4,
           titulo: "Actuaciones procedimentales",
           estado: estadoActuaciones(
             actuaciones,
@@ -140,18 +142,19 @@ export default function LayoutProcedimiento({ children }: { children: React.Reac
             capturados ?? [],
           ),
         },
+        { slug: "elementos", numero: 5, titulo: "Elementos incautados", estado: estadoElementos(cantidadElementos) },
         { slug: "relato", numero: 6, titulo: "Relato de los hechos", estado: estadoRelato(actuaciones) },
         {
-          slug: "documentos",
-          numero: 7,
-          titulo: "Documentos",
-          estado: estadoDocumentos(documentos?.length ?? null),
-        },
-        {
           slug: "pago",
-          numero: 8,
+          numero: 7,
           titulo: "Pago",
           estado: estadoPago(pago, procedimiento?.exoneradoPago),
+        },
+        {
+          slug: "documentos",
+          numero: 8,
+          titulo: "Documentos",
+          estado: estadoDocumentos(documentos?.length ?? null),
         },
       ]);
     }
@@ -217,7 +220,7 @@ export default function LayoutProcedimiento({ children }: { children: React.Reac
         {bloqueadoPorPagoComplejo && (
           <div className="mb-4 rounded-md border border-acento/30 bg-acento/10 px-4 py-3 font-sans text-sm text-institucional-900">
             🔒 Este es un procedimiento <strong>complejo</strong>. Los Bloques 1 a 7 quedan
-            deshabilitados hasta que un administrador verifique el pago (Bloque 8) — una vez
+            deshabilitados hasta que un administrador verifique el pago (Bloque 7) — una vez
             verificado, podrás diligenciar el resto de la información con normalidad.
           </div>
         )}
@@ -225,14 +228,14 @@ export default function LayoutProcedimiento({ children }: { children: React.Reac
           <div className="mb-4 rounded-md border border-acento/30 bg-acento/10 px-4 py-3 font-sans text-sm text-institucional-900">
             🔒 Este procedimiento ya generó documentos oficiales y quedó <strong>bloqueado para edición</strong>.
             Los datos de los Bloques 1 a 6 ya no se pueden modificar — solo puedes descargar los
-            documentos existentes en el Bloque 7.
+            documentos existentes en el Bloque 8.
           </div>
         )}
         {edicionDesbloqueada && (
           <div className="mb-4 rounded-md border border-estado-error/30 bg-estado-error/10 px-4 py-3 font-sans text-sm text-institucional-900">
             🔓 Un administrador desbloqueó temporalmente la edición de este procedimiento. Puedes
             corregir la información de los Bloques 1 a 6, eliminar capturados/aprehendidos o elementos, y
-            regenerar los documentos del Bloque 7 con la información corregida. Avisa al
+            regenerar los documentos del Bloque 8 con la información corregida. Avisa al
             administrador cuando termines para que vuelva a bloquearlo.
           </div>
         )}

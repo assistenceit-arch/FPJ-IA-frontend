@@ -476,7 +476,7 @@ export default function EditarInterviniente() {
         </Campo>
       </Seccion>
 
-      <Seccion titulo="Participación en los hechos (Bloque 5/6)">
+      <Seccion titulo="Participación en los hechos (Bloque 4/6)">
         <div className="sm:col-span-2">
           <Campo etiqueta="¿Qué hizo esta persona específicamente? (portaba, consumía, comercializaba, ocultaba...)">
             <textarea

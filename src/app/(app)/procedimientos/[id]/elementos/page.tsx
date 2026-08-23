@@ -115,7 +115,7 @@ export default function BloqueElementos() {
     <div>
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-display text-2xl text-institucional-950">4. Elementos incautados</h1>
+          <h1 className="font-display text-2xl text-institucional-950">5. Elementos incautados</h1>
           <p className="mt-1 font-sans text-sm text-institucional-700">
             Cada elemento se asocia a un capturado/aprehendido específico, o queda "sin individualizar"
             cuando no es posible atribuirlo a uno en particular (ej. hallado en un lugar común).

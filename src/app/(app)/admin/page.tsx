@@ -527,7 +527,7 @@ export default function PanelAdministracion() {
             <h3 className="font-display text-base text-institucional-950">Métodos de pago</h3>
             <p className="mt-1 font-sans text-xs text-institucional-700">
               Habilita cada método con el interruptor y edita sus datos. Solo los habilitados se
-              muestran al funcionario en el Bloque 8.
+              muestran al funcionario en el Bloque 7.
             </p>
           </div>
 
@@ -646,7 +646,7 @@ export default function PanelAdministracion() {
               Los funcionarios te podrán contactar a
             </h3>
             <p className="mt-1 font-sans text-xs text-institucional-700">
-              Se muestran en el Bloque 8 de procedimientos complejos, tras adjuntar el comprobante,
+              Se muestran en el Bloque 7 de procedimientos complejos, tras adjuntar el comprobante,
               por si un asesor no se ha comunicado en 15 minutos.
             </p>
           </div>

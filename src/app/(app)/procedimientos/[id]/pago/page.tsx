@@ -180,7 +180,7 @@ export default function BloquePago() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="font-display text-2xl text-institucional-950">8. Pago</h1>
+        <h1 className="font-display text-2xl text-institucional-950">7. Pago</h1>
         {procedimiento?.tipoProcedimiento === "COMPLEJO" ? (
           <p className="mt-1 font-sans text-sm text-institucional-700">
             Una vez verificado el pago por un administrador, uno de nuestros asesores especializados
@@ -189,7 +189,7 @@ export default function BloquePago() {
         ) : (
           <p className="mt-1 font-sans text-sm text-institucional-700">
             El pago debe quedar <strong>Verificado</strong> por un administrador antes de poder generar
-            documentos en el Bloque 7.
+            documentos en el Bloque 8.
           </p>
         )}
       </div>

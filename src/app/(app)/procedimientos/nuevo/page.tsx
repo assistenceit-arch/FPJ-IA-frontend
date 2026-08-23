@@ -136,7 +136,7 @@ export default function PaginaNuevoProcedimiento() {
           {tipoProcedimiento === "COMPLEJO" && (
             <p className="mt-2 font-sans text-xs text-institucional-700">
               Los procedimientos complejos requieren pago con asesoría especializada — al crearlo
-              irás directo al Bloque 8 (Pago).
+              irás directo al Bloque 7 (Pago).
             </p>
           )}
         </div>

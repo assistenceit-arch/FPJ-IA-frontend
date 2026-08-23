@@ -115,7 +115,7 @@ export default function BloqueRelato() {
 
       {faltaBloque5 && (
         <p className="rounded-md bg-institucional-100 px-3 py-2.5 font-sans text-xs text-institucional-800">
-          Recomendamos completar primero el Bloque 5 (Actuaciones Procedimentales) — este relato se
+          Recomendamos completar primero el Bloque 4 (Actuaciones Procedimentales) — este relato se
           guarda junto con esa información, aunque puedes diligenciarlo ya mismo si prefieres.
         </p>
       )}

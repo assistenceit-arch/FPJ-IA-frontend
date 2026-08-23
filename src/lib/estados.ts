@@ -43,9 +43,20 @@ export function estadoIntervinientes(cantidad: number | null): EstadoBloque {
  * igual que Intervinientes, es un estado binario: sin elementos = vacío,
  * al menos uno registrado = completo.
  */
+/**
+ * Bloque de Elementos incautados.
+ *
+ * "Vacío" únicamente mientras el dato no se ha cargado (null — depende de
+ * que Intervinientes ya haya cargado, ver layout.tsx). Adenda 2026-08-22:
+ * antes, cero elementos SIEMPRE quedaba en "vacío" indefinidamente, sin
+ * importar si el procedimiento genuinamente no incautó nada (bug real
+ * reportado tras caso en vivo de Hurto) — no hay una razón operativa
+ * para bloquear un procedimiento que válidamente no tuvo elementos que
+ * incautar. Ahora, una vez cargado el dato, cero elementos es tan
+ * "completo" como cualquier cantidad mayor.
+ */
 export function estadoElementos(cantidadElementos: number | null): EstadoBloque {
-  if (cantidadElementos === null) return "vacio";
-  return cantidadElementos > 0 ? "completo" : "vacio";
+  return cantidadElementos === null ? "vacio" : "completo";
 }
 
 /**
