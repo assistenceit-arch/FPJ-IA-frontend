@@ -3,6 +3,7 @@
 import { useState, FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { api, ApiError } from "@/lib/api";
 import { guardarToken } from "@/lib/auth";
 
@@ -48,19 +49,20 @@ export default function PaginaLogin() {
 
   return (
     <div className="grid min-h-screen lg:grid-cols-[minmax(0,1fr)_minmax(0,420px)]">
-      {/* Panel institucional */}
+      {/* Panel de marca */}
       <div className="relative hidden overflow-hidden bg-institucional-950 px-16 py-14 text-institucional-50 lg:flex lg:flex-col lg:justify-between">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 opacity-[0.07]"
-          style={{
-            backgroundImage:
-              "repeating-linear-gradient(115deg, transparent, transparent 68px, currentColor 68px, currentColor 69px)",
-          }}
+        <Image
+          src="/marca/hero-login.webp"
+          alt=""
+          fill
+          priority
+          sizes="(min-width: 1024px) 60vw, 0px"
+          className="object-cover opacity-80"
         />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-institucional-950 via-institucional-950/70 to-institucional-950/20" />
         <div className="relative">
           <p className="font-sans text-xs uppercase tracking-[0.25em] text-institucional-100/70">
-            Policía Judicial · FPJ IA
+            Gestión y Documentación Operativa
           </p>
           <h1 className="mt-6 max-w-md font-display text-4xl leading-tight text-institucional-50">
             Un solo formulario. Cinco documentos oficiales, siempre coherentes entre sí.
@@ -96,7 +98,7 @@ export default function PaginaLogin() {
                 value={correo}
                 onChange={(e) => setCorreo(e.target.value)}
                 className="mt-1.5 block w-full rounded-md border border-institucional-100 bg-white px-3 py-2.5 font-sans text-institucional-950 shadow-sm outline-none focus:border-acento"
-                placeholder="tu.correo@policia.gov.co"
+                placeholder="tu.correo@institucion.gov.co"
               />
             </div>
 

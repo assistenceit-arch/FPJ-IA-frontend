@@ -29,6 +29,10 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  // Corre en todas las rutas salvo assets estáticos y la API de Next.
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  // Corre en todas las rutas salvo assets estáticos, la API de Next, y
+  // los archivos de marca en /public/marca (logo y hero del login --
+  // deben cargar SIN sesión, ya que el propio login los usa. Antes de
+  // esta adenda no había ningún asset en /public, así que este vacío
+  // en el matcher nunca se había manifestado como bug real).
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|marca/).*)"],
 };

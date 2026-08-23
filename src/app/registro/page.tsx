@@ -81,7 +81,7 @@ export default function PaginaRegistro() {
               required
               value={correo}
               onChange={(e) => setCorreo(e.target.value)}
-              placeholder="tu.correo@policia.gov.co"
+              placeholder="tu.correo@institucion.gov.co"
               className="mt-1.5 block w-full rounded-md border border-institucional-100 bg-white px-3 py-2.5 font-sans text-institucional-950 shadow-sm outline-none focus:border-acento"
             />
           </div>

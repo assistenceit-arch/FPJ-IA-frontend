@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { cerrarSesion, payloadToken } from "@/lib/auth";
@@ -24,9 +25,16 @@ export default function LayoutApp({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-institucional-50">
       <header className="border-b border-institucional-100 bg-institucional-950">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-3.5">
-          <Link href="/procedimientos" className="font-display text-lg text-institucional-50">
-            FPJ IA
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-2.5">
+          <Link href="/procedimientos" aria-label="Ir a Mis procedimientos" className="flex items-center">
+            <Image
+              src="/marca/escudo.webp"
+              alt="PJ | Gestión Digital"
+              width={227}
+              height={200}
+              priority
+              className="h-11 w-auto"
+            />
           </Link>
           <div className="flex items-center gap-4 font-sans text-sm text-institucional-100/80">
             {esAdministrador && (
