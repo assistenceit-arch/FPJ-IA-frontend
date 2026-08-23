@@ -178,4 +178,16 @@ export interface Victima {
   // Adenda 2026-08-23 (módulo Homicidio): exclusivo de este delito.
   // Soporta también la tentativa (fallecio = false).
   fallecio: boolean | null;
+  // Adenda 2026-08-23 (módulo Secuestro): exclusivo de este delito.
+  fechaInicioPrivacionLibertad: string | null;
+  horaInicioPrivacionLibertad: string | null;
+  finalidadPrivacionLibertad: string | null;
+  lugaresRetencion: string | null;
+  // Adenda 2026-08-23 (módulo Extorsión): exclusivo de este delito.
+  montoExigido: string | null;
+  motivoExigencia: string | null;
+  medioExigencia: string | null;
+  existenAmenazas: boolean | null;
+  descripcionAmenazas: string | null;
+  lugarEntregaExigido: string | null;
 }

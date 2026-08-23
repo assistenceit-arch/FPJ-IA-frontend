@@ -7,8 +7,9 @@ import { api, ApiError } from "@/lib/api";
 import { useAutoguardado } from "@/lib/useAutoguardado";
 import { IndicadorGuardado } from "@/components/IndicadorGuardado";
 import { soloClaves } from "@/lib/limpiar";
+import { CampoHora } from "@/components/CampoHora";
 import type { Victima } from "@/lib/tipos";
-import { DELITO_VCSP, DELITO_VIF, DELITO_HOMICIDIO } from "@/lib/delitos";
+import { DELITO_VCSP, DELITO_VIF, DELITO_HOMICIDIO, DELITO_SECUESTRO, DELITO_EXTORSION } from "@/lib/delitos";
 
 function Campo({
   etiqueta,
@@ -100,6 +101,16 @@ const CLAVES_GUARDABLES = [
   "existenAntecedentesViolencia",
   "descripcionAntecedentesViolencia",
   "fallecio",
+  "fechaInicioPrivacionLibertad",
+  "horaInicioPrivacionLibertad",
+  "finalidadPrivacionLibertad",
+  "lugaresRetencion",
+  "montoExigido",
+  "motivoExigencia",
+  "medioExigencia",
+  "existenAmenazas",
+  "descripcionAmenazas",
+  "lugarEntregaExigido",
 ] as const;
 
 export default function EditarVictima() {
@@ -469,6 +480,109 @@ export default function EditarVictima() {
           )}
         </div>
       </div>
+
+      {delito === DELITO_SECUESTRO && (
+        <Seccion titulo="Privación de la libertad">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Campo etiqueta="Fecha de inicio de la privación" requerido>
+              <input
+                type="date"
+                className={claseInput}
+                value={p.fechaInicioPrivacionLibertad?.slice(0, 10) ?? ""}
+                onChange={(e) =>
+                  set({
+                    fechaInicioPrivacionLibertad: e.target.value
+                      ? `${e.target.value}T00:00:00.000Z`
+                      : null,
+                  })
+                }
+              />
+            </Campo>
+            <Campo etiqueta="Hora de inicio de la privación" requerido>
+              <CampoHora
+                value={p.horaInicioPrivacionLibertad ?? ""}
+                onChange={(v) => set({ horaInicioPrivacionLibertad: v || null })}
+              />
+            </Campo>
+          </div>
+          <div className="sm:col-span-2">
+            <Campo etiqueta="¿Qué finalidad se pretendía lograr con la privación?" requerido>
+              <textarea
+                rows={2}
+                className={claseInput}
+                placeholder="Ej. exigir dinero, otro interés — sin calificar si es secuestro simple o extorsivo"
+                value={p.finalidadPrivacionLibertad ?? ""}
+                onChange={(e) => set({ finalidadPrivacionLibertad: e.target.value || null })}
+              />
+            </Campo>
+          </div>
+          <div className="sm:col-span-2">
+            <Campo etiqueta="Lugar o lugares donde estuvo retenida" requerido>
+              <textarea
+                rows={2}
+                className={claseInput}
+                value={p.lugaresRetencion ?? ""}
+                onChange={(e) => set({ lugaresRetencion: e.target.value || null })}
+              />
+            </Campo>
+          </div>
+          <p className="sm:col-span-2 font-sans text-xs text-institucional-700">
+            No se pide el momento de la liberación — se asume que coincide con la intervención
+            policial ya registrada en la cronología general del procedimiento.
+          </p>
+        </Seccion>
+      )}
+
+      {delito === DELITO_EXTORSION && (
+        <Seccion titulo="Exigencia">
+          <Campo etiqueta="¿Qué se exigió? ¿Cuánto?" requerido>
+            <input
+              className={claseInput}
+              placeholder="Ej. $5.000.000, un vehículo, etc."
+              value={p.montoExigido ?? ""}
+              onChange={(e) => set({ montoExigido: e.target.value || null })}
+            />
+          </Campo>
+          <Campo etiqueta="¿Por qué motivo?" requerido>
+            <input
+              className={claseInput}
+              value={p.motivoExigencia ?? ""}
+              onChange={(e) => set({ motivoExigencia: e.target.value || null })}
+            />
+          </Campo>
+          <Campo etiqueta="¿Por qué medio?" requerido>
+            <input
+              className={claseInput}
+              placeholder="Ej. llamada telefónica, mensaje, personal"
+              value={p.medioExigencia ?? ""}
+              onChange={(e) => set({ medioExigencia: e.target.value || null })}
+            />
+          </Campo>
+          <Campo etiqueta="Lugar de entrega exigido">
+            <input
+              className={claseInput}
+              value={p.lugarEntregaExigido ?? ""}
+              onChange={(e) => set({ lugarEntregaExigido: e.target.value || null })}
+            />
+          </Campo>
+          <Campo etiqueta="¿Hubo amenazas si no accedía?">
+            <SiNo valor={p.existenAmenazas} onChange={(v) => set({ existenAmenazas: v })} />
+          </Campo>
+          {p.existenAmenazas && (
+            <Campo etiqueta="¿Cuáles?" requerido>
+              <input
+                className={claseInput}
+                value={p.descripcionAmenazas ?? ""}
+                onChange={(e) => set({ descripcionAmenazas: e.target.value || null })}
+              />
+            </Campo>
+          )}
+          <p className="sm:col-span-2 font-sans text-xs text-institucional-700">
+            Si hubo varias exigencias en momentos distintos, resuma toda la secuencia en estos
+            mismos campos — no es necesario registrar cada una por separado.
+          </p>
+        </Seccion>
+      )}
 
       {delito === DELITO_VCSP && (
         <Seccion titulo="Servidor público">
