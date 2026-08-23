@@ -49,25 +49,16 @@ export default function PaginaLogin() {
 
   return (
     <div className="grid min-h-screen lg:grid-cols-[minmax(0,1fr)_minmax(0,420px)]">
-      {/* Panel de marca */}
-      <div className="relative hidden overflow-hidden bg-institucional-950 px-16 py-14 text-institucional-50 lg:flex lg:flex-col lg:justify-between">
+      {/* Panel de marca — imagen sola, sin texto encima */}
+      <div className="relative hidden overflow-hidden bg-institucional-950 lg:block">
         <Image
           src="/marca/hero-login.webp"
-          alt=""
+          alt="Gestión y Documentación Operativa"
           fill
           priority
           sizes="(min-width: 1024px) 60vw, 0px"
           className="object-cover"
         />
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-institucional-950/90 via-institucional-950/10 to-transparent" />
-        <div className="relative">
-          <p className="font-sans text-xs uppercase tracking-[0.25em] text-institucional-100/70">
-            Gestión y Documentación Operativa
-          </p>
-        </div>
-        <div className="relative font-sans text-sm text-institucional-100/50">
-          <p>La información se captura una única vez y se reutiliza automáticamente en cada documento.</p>
-        </div>
       </div>
 
       {/* Formulario */}
