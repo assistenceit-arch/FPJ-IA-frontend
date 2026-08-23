@@ -175,4 +175,7 @@ export interface Victima {
   descripcionMedidasProteccion: string | null;
   existenAntecedentesViolencia: boolean | null;
   descripcionAntecedentesViolencia: string | null;
+  // Adenda 2026-08-23 (módulo Homicidio): exclusivo de este delito.
+  // Soporta también la tentativa (fallecio = false).
+  fallecio: boolean | null;
 }

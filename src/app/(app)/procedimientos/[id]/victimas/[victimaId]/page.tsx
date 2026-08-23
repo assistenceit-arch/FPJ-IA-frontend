@@ -8,7 +8,7 @@ import { useAutoguardado } from "@/lib/useAutoguardado";
 import { IndicadorGuardado } from "@/components/IndicadorGuardado";
 import { soloClaves } from "@/lib/limpiar";
 import type { Victima } from "@/lib/tipos";
-import { DELITO_VCSP, DELITO_VIF } from "@/lib/delitos";
+import { DELITO_VCSP, DELITO_VIF, DELITO_HOMICIDIO } from "@/lib/delitos";
 
 function Campo({
   etiqueta,
@@ -99,6 +99,7 @@ const CLAVES_GUARDABLES = [
   "descripcionMedidasProteccion",
   "existenAntecedentesViolencia",
   "descripcionAntecedentesViolencia",
+  "fallecio",
 ] as const;
 
 export default function EditarVictima() {
@@ -391,6 +392,11 @@ export default function EditarVictima() {
       <div className="rounded-lg border border-institucional-100 bg-white p-6 shadow-sm">
         <h2 className="font-display text-lg text-institucional-950">Estado físico</h2>
         <div className="mt-4 space-y-3">
+          {delito === DELITO_HOMICIDIO && (
+            <Campo etiqueta="¿La víctima falleció?" requerido>
+              <SiNo valor={p.fallecio} onChange={(v) => set({ fallecio: v })} />
+            </Campo>
+          )}
           <Campo etiqueta="¿Presentó lesiones?">
             <SiNo
               valor={p.presentaLesiones}
