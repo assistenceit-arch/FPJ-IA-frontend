@@ -66,6 +66,8 @@ interface EventoAuditoria {
   tablaAfectada: string;
   registroAfectado: string;
   descripcionEvento: string;
+  procedimientoId: string | null;
+  numeroInterno: string | null;
 }
 
 interface Paginado<T> {
@@ -1013,7 +1015,7 @@ export default function PanelAdministracion() {
         <form onSubmit={(e) => buscarAuditoria(e, 1)} className="flex gap-2">
           <input
             className={claseInput}
-            placeholder="Buscar por número interno, id, usuario o texto de la descripción…"
+            placeholder="Buscar por número de caso (ej. EST-2026-000015), usuario o texto de la descripción…"
             value={busquedaAuditoria}
             onChange={(e) => setBusquedaAuditoria(e.target.value)}
           />
@@ -1043,6 +1045,12 @@ export default function PanelAdministracion() {
                   })}
                   {" · "}
                   <span className="font-medium text-institucional-950">{evento.usuario}</span>
+                  {evento.numeroInterno && (
+                    <>
+                      {" · "}
+                      <span className="font-semibold text-institucional-950">{evento.numeroInterno}</span>
+                    </>
+                  )}
                 </p>
                 <span
                   className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
