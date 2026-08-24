@@ -58,6 +58,16 @@ interface UsuarioAdmin {
   correoVerificado: boolean;
 }
 
+interface EventoAuditoria {
+  id: string;
+  fechaEvento: string;
+  usuario: string;
+  accion: string;
+  tablaAfectada: string;
+  registroAfectado: string;
+  descripcionEvento: string;
+}
+
 interface Paginado<T> {
   datos: T[];
   total: number;
@@ -183,6 +193,12 @@ export default function PanelAdministracion() {
   const [cambiandoEstado, setCambiandoEstado] = useState<string | null>(null);
   const [eliminandoUsuario, setEliminandoUsuario] = useState<string | null>(null);
 
+  const [eventosAuditoria, setEventosAuditoria] = useState<EventoAuditoria[]>([]);
+  const [paginaAuditoria, setPaginaAuditoria] = useState(1);
+  const [totalPaginasAuditoria, setTotalPaginasAuditoria] = useState(1);
+  const [busquedaAuditoria, setBusquedaAuditoria] = useState("");
+  const [buscandoAuditoria, setBuscandoAuditoria] = useState(false);
+
   // Crear usuario
   const [nuevoNombres, setNuevoNombres] = useState("");
   const [nuevoApellidos, setNuevoApellidos] = useState("");
@@ -262,12 +278,37 @@ export default function PanelAdministracion() {
     }
   }
 
+  // Adenda 2026-08-24: antes solo se podía ver este registro con SQL
+  // directo a la base de datos. La búsqueda filtra por coincidencia
+  // parcial contra el registro afectado (ej. un número interno o un
+  // id), el usuario que ejecutó la acción, o el texto de la
+  // descripción -- cubre "quiero ver todo lo que pasó con X" sin
+  // necesitar filtros separados por campo.
+  async function buscarAuditoria(evento?: FormEvent, pagina = 1) {
+    evento?.preventDefault();
+    setBuscandoAuditoria(true);
+    setError(null);
+    try {
+      const parametros = new URLSearchParams({ pagina: String(pagina) });
+      if (busquedaAuditoria.trim()) parametros.set("busqueda", busquedaAuditoria.trim());
+      const respuesta = await api.get<Paginado<EventoAuditoria>>(`/admin/auditoria?${parametros}`);
+      setEventosAuditoria(respuesta.datos);
+      setPaginaAuditoria(respuesta.pagina);
+      setTotalPaginasAuditoria(respuesta.totalPaginas);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "No fue posible cargar la auditoría.");
+    } finally {
+      setBuscandoAuditoria(false);
+    }
+  }
+
   useEffect(() => {
     if (autorizado !== true) return;
     cargarConfiguracion();
     cargarPagosPendientes();
     cargarUsuarios();
     buscarProcedimientos();
+    buscarAuditoria();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autorizado]);
 
@@ -962,6 +1003,71 @@ export default function PanelAdministracion() {
             </button>
           </div>
         </form>
+      </Seccion>
+
+      {/* ── Auditoría ── */}
+      <Seccion
+        titulo="Auditoría"
+        descripcion="Historial de acciones relevantes del sistema — creación, modificación y eliminación de procedimientos, incluido el borrado automático por política de retención de datos (7 días)."
+      >
+        <form onSubmit={(e) => buscarAuditoria(e, 1)} className="flex gap-2">
+          <input
+            className={claseInput}
+            placeholder="Buscar por número interno, id, usuario o texto de la descripción…"
+            value={busquedaAuditoria}
+            onChange={(e) => setBusquedaAuditoria(e.target.value)}
+          />
+          <button
+            type="submit"
+            disabled={buscandoAuditoria}
+            className="shrink-0 rounded-md bg-institucional-950 px-4 py-2 font-sans text-sm font-semibold text-white shadow-sm transition-colors hover:bg-institucional-800 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {buscandoAuditoria ? "Buscando…" : "Buscar"}
+          </button>
+        </form>
+
+        <div className="space-y-2">
+          {eventosAuditoria.length === 0 && (
+            <p className="font-sans text-sm text-institucional-700">No hay eventos que coincidan con la búsqueda.</p>
+          )}
+          {eventosAuditoria.map((evento) => (
+            <div key={evento.id} className="rounded-md border border-institucional-100 p-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="font-sans text-xs text-institucional-700">
+                  {new Date(evento.fechaEvento).toLocaleString("es-CO", {
+                    day: "2-digit",
+                    month: "short",
+                    year: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                  {" · "}
+                  <span className="font-medium text-institucional-950">{evento.usuario}</span>
+                </p>
+                <span
+                  className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                    evento.accion === "Eliminar"
+                      ? "bg-estado-error/15 text-estado-error"
+                      : evento.accion === "Crear"
+                        ? "bg-estado-completo/15 text-estado-completo"
+                        : "bg-institucional-100 text-institucional-800"
+                  }`}
+                >
+                  {evento.accion}
+                </span>
+              </div>
+              <p className="mt-1.5 font-sans text-sm text-institucional-950">{evento.descripcionEvento}</p>
+              <p className="mt-1 font-sans text-xs text-institucional-700">
+                {evento.tablaAfectada} · {evento.registroAfectado}
+              </p>
+            </div>
+          ))}
+        </div>
+        <Paginador
+          pagina={paginaAuditoria}
+          totalPaginas={totalPaginasAuditoria}
+          onCambiar={(pagina) => buscarAuditoria(undefined, pagina)}
+        />
       </Seccion>
     </div>
   );
