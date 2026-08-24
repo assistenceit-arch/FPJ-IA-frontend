@@ -56,6 +56,7 @@ interface UsuarioAdmin {
   rol: "FUNCIONARIO" | "ADMINISTRADOR";
   activo: boolean;
   correoVerificado: boolean;
+  bloqueadoPorIntentos: boolean;
 }
 
 interface EventoAuditoria {
@@ -444,6 +445,21 @@ export default function PanelAdministracion() {
       await cargarUsuarios();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "No fue posible cambiar el estado del usuario.");
+    } finally {
+      setCambiandoEstado(null);
+    }
+  }
+
+  // Adenda 2026-08-24: desbloqueo tras 5 intentos fallidos de login --
+  // distinto de cambiarEstadoUsuario (bloqueo por uso irregular).
+  async function desbloquearPorIntentos(usuario: UsuarioAdmin) {
+    setError(null);
+    setCambiandoEstado(usuario.id);
+    try {
+      await api.patch(`/admin/usuarios/${usuario.id}/desbloquear-intentos`, {});
+      await cargarUsuarios();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "No fue posible desbloquear al usuario.");
     } finally {
       setCambiandoEstado(null);
     }
@@ -899,6 +915,11 @@ export default function PanelAdministracion() {
                       Bloqueado
                     </span>
                   )}
+                  {u.bloqueadoPorIntentos && (
+                    <span className="ml-2 rounded-full bg-estado-error/15 px-2 py-0.5 text-xs font-semibold text-estado-error">
+                      Bloqueado por intentos fallidos
+                    </span>
+                  )}
                   {!u.correoVerificado && (
                     <span className="ml-2 rounded-full bg-estado-pendiente/15 px-2 py-0.5 text-xs font-semibold text-estado-pendiente">
                       Correo sin verificar
@@ -932,6 +953,16 @@ export default function PanelAdministracion() {
                 >
                   {cambiandoEstado === u.id ? "Guardando…" : u.activo ? "Bloquear" : "Desbloquear"}
                 </button>
+                {u.bloqueadoPorIntentos && (
+                  <button
+                    type="button"
+                    onClick={() => desbloquearPorIntentos(u)}
+                    disabled={cambiandoEstado === u.id}
+                    className="rounded-md bg-estado-completo px-3 py-1.5 font-sans text-xs font-semibold text-white shadow-sm transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {cambiandoEstado === u.id ? "Guardando…" : "Desbloquear intentos"}
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => eliminarUsuario(u)}

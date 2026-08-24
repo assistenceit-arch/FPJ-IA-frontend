@@ -6,7 +6,10 @@ const NOMBRE_COOKIE = "fpj_ia_token";
 // logueado, así que el middleware no debe exigir token ahí (antes
 // redirigía a /login sin importar que la ruta existiera, porque solo
 // "/login" estaba en la lista).
-const RUTAS_PUBLICAS = ["/login", "/registro", "/verificar-correo"];
+// Adenda 2026-08-24: /olvide-password y /restablecer-password también
+// se usan precisamente sin sesión iniciada (recuperación de
+// contraseña), mismo motivo.
+const RUTAS_PUBLICAS = ["/login", "/registro", "/verificar-correo", "/olvide-password", "/restablecer-password"];
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
