@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { api, ApiError } from "@/lib/api";
 import { descargarArchivo } from "@/lib/descargarArchivo";
+import { payloadToken } from "@/lib/auth";
 
 interface CapturadoResumen {
   id: string;
@@ -93,37 +94,105 @@ function AccionDocumento({
   edicionDesbloqueada,
   onGenerar,
   onDescargar,
+  onEnviarCorreo,
 }: {
   generado?: { id: string };
   cargando: boolean;
   edicionDesbloqueada: boolean;
   onGenerar: () => void;
   onDescargar: (documentoId: string) => void;
+  onEnviarCorreo: (documentoId: string, correo: string) => Promise<void>;
 }) {
+  const [mostrarCorreo, setMostrarCorreo] = useState(false);
+  const [correo, setCorreo] = useState(() => payloadToken()?.correo ?? "");
+  const [enviando, setEnviando] = useState(false);
+  const [resultado, setResultado] = useState<"exito" | null>(null);
+  const [errorEnvio, setErrorEnvio] = useState<string | null>(null);
+
+  async function manejarEnvio() {
+    if (!generado || !correo.trim()) return;
+    setEnviando(true);
+    setResultado(null);
+    setErrorEnvio(null);
+    try {
+      await onEnviarCorreo(generado.id, correo.trim());
+      setResultado("exito");
+      setMostrarCorreo(false);
+    } catch (err) {
+      // Corrección 2026-08-26: antes se mostraba siempre el mismo texto
+      // genérico ("verifica el correo"), sin importar la causa real --
+      // reportado por el usuario como confuso, porque el correo que
+      // escribía normalmente sí estaba bien: la causa real casi siempre
+      // es que el servidor no tiene SMTP configurado, no un problema
+      // con la dirección de correo.
+      setErrorEnvio(
+        err instanceof ApiError ? err.message : "No fue posible enviar el documento.",
+      );
+    } finally {
+      setEnviando(false);
+    }
+  }
+
   if (generado) {
     return (
-      <div className="flex items-center gap-2">
-        <span className="rounded-full bg-institucional-100 px-2.5 py-1 font-sans text-xs font-medium text-institucional-800">
-          Ya generado
-        </span>
-        <button
-          type="button"
-          onClick={() => onDescargar(generado.id)}
-          className="rounded-md border border-institucional-100 px-3 py-1.5 font-sans text-xs text-institucional-800 transition-colors hover:bg-institucional-50"
-        >
-          Descargar
-        </button>
-        {edicionDesbloqueada && (
+      <div className="space-y-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="rounded-full bg-institucional-100 px-2.5 py-1 font-sans text-xs font-medium text-institucional-800">
+            Ya generado
+          </span>
           <button
             type="button"
-            onClick={onGenerar}
-            disabled={cargando}
-            className="rounded-md bg-estado-error px-3 py-1.5 font-sans text-xs font-semibold text-white shadow-sm transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-            title="Un administrador desbloqueó la edición de este procedimiento"
+            onClick={() => onDescargar(generado.id)}
+            className="rounded-md border border-institucional-100 px-3 py-1.5 font-sans text-xs text-institucional-800 transition-colors hover:bg-institucional-50"
           >
-            {cargando ? "Regenerando…" : "Regenerar"}
+            Descargar
           </button>
+          <button
+            type="button"
+            onClick={() => {
+              setMostrarCorreo((v) => !v);
+              setResultado(null);
+              setErrorEnvio(null);
+            }}
+            className="rounded-md border border-institucional-100 px-3 py-1.5 font-sans text-xs text-institucional-800 transition-colors hover:bg-institucional-50"
+          >
+            Enviar por correo
+          </button>
+          {edicionDesbloqueada && (
+            <button
+              type="button"
+              onClick={onGenerar}
+              disabled={cargando}
+              className="rounded-md bg-estado-error px-3 py-1.5 font-sans text-xs font-semibold text-white shadow-sm transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+              title="Un administrador desbloqueó la edición de este procedimiento"
+            >
+              {cargando ? "Regenerando…" : "Regenerar"}
+            </button>
+          )}
+        </div>
+        {mostrarCorreo && (
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              type="email"
+              value={correo}
+              onChange={(e) => setCorreo(e.target.value)}
+              placeholder="correo@institucion.gov.co"
+              className="rounded-md border border-institucional-100 px-2.5 py-1.5 font-sans text-xs text-institucional-950 shadow-sm outline-none focus:border-acento"
+            />
+            <button
+              type="button"
+              onClick={manejarEnvio}
+              disabled={enviando || !correo.trim()}
+              className="rounded-md bg-acento px-3 py-1.5 font-sans text-xs font-semibold text-white shadow-sm transition-colors hover:bg-acento-hover disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {enviando ? "Enviando…" : "Enviar"}
+            </button>
+          </div>
         )}
+        {resultado === "exito" && (
+          <p className="font-sans text-xs text-estado-completo">Documento enviado correctamente.</p>
+        )}
+        {errorEnvio && <p className="font-sans text-xs text-estado-error">{errorEnvio}</p>}
       </div>
     );
   }
@@ -187,6 +256,12 @@ export default function BloqueDocumentos() {
     if (!ok) {
       setError("El documento se generó, pero no fue posible descargarlo automáticamente.");
     }
+  }
+
+  // Adenda 2026-08-26: alternativa a la descarga directa, a solicitud
+  // del usuario -- útil sobre todo desde el celular.
+  async function enviarPorCorreo(documentoId: string, correo: string) {
+    await api.post(`/documentos/${documentoId}/enviar-correo`, { correo });
   }
 
   function nombreArchivo(tipoDocumento: string, referencia?: string) {
@@ -373,6 +448,7 @@ export default function BloqueDocumentos() {
                 cargando={botonCargando === `ACTA-${p.id}`}
                 onGenerar={() => generarPorCapturado("acta-incautacion", "ACTA", p)}
                 onDescargar={(docId) => descargar(docId, nombreArchivo("ACTA", `${p.primerNombre}_${p.primerApellido}`))}
+                onEnviarCorreo={(docId, correo) => enviarPorCorreo(docId, correo)}
               />
             </div>
           ))
@@ -395,6 +471,7 @@ export default function BloqueDocumentos() {
               cargando={botonCargando === "ACTA_COLECTIVA"}
               onGenerar={generarActaColectiva}
               onDescargar={(docId) => descargar(docId, nombreArchivo("ACTA_COLECTIVA"))}
+              onEnviarCorreo={(docId, correo) => enviarPorCorreo(docId, correo)}
             />
           </div>
         </Seccion>
@@ -415,6 +492,7 @@ export default function BloqueDocumentos() {
                 cargando={botonCargando === `FPJ6-${p.id}`}
                 onGenerar={() => generarPorCapturado("fpj6-acta-derechos", "FPJ6", p)}
                 onDescargar={(docId) => descargar(docId, nombreArchivo("FPJ6", `${p.primerNombre}_${p.primerApellido}`))}
+                onEnviarCorreo={(docId, correo) => enviarPorCorreo(docId, correo)}
               />
             </div>
           ))
@@ -429,6 +507,7 @@ export default function BloqueDocumentos() {
             cargando={false}
             onGenerar={iniciarFpj5}
             onDescargar={(docId) => descargar(docId, nombreArchivo("FPJ5"))}
+            onEnviarCorreo={(docId, correo) => enviarPorCorreo(docId, correo)}
           />
         ) : (
           <>
@@ -511,6 +590,7 @@ export default function BloqueDocumentos() {
                 onDescargar={(docId) =>
                   descargar(docId, nombreArchivo("FPJ7", `${persona?.primerNombre ?? "colectivo"}_${elemento.descripcionBase}`))
                 }
+                onEnviarCorreo={(docId, correo) => enviarPorCorreo(docId, correo)}
               />
             </div>
           ))
@@ -545,6 +625,7 @@ export default function BloqueDocumentos() {
                 onDescargar={(docId) =>
                   descargar(docId, nombreArchivo("FPJ8", `${persona?.primerNombre ?? "colectivo"}_${elemento.descripcionBase}`))
                 }
+                onEnviarCorreo={(docId, correo) => enviarPorCorreo(docId, correo)}
               />
             </div>
           ))
