@@ -84,7 +84,26 @@ export default function PaginaLogin() {
 
   return (
     <div className="grid min-h-screen lg:grid-cols-[minmax(0,1fr)_minmax(0,420px)]">
-      {/* Panel de marca — imagen sola, sin texto encima */}
+      {/* Adenda 2026-08-25 (segundo ajuste): a solicitud del usuario tras
+          ver la primera versión en un iPhone real -- el desenfoque
+          (backdrop-blur) sobre la imagen de fondo la dejaba borrosa e
+          irreconocible, justo lo contrario de lo que se quería. Se
+          reemplaza por un diseño más simple y sin traslape: la imagen
+          nítida arriba (banner), el formulario sólido abajo -- sin
+          transparencia ni desenfoque, cada uno en su propio espacio.
+          Exclusivo de celular; el panel de escritorio no se toca. */}
+      <div className="relative h-[32vh] w-full overflow-hidden lg:hidden">
+        <Image
+          src="/marca/hero-login.webp"
+          alt="Gestión y Documentación Operativa"
+          fill
+          priority
+          sizes="100vw"
+          className="object-cover"
+        />
+      </div>
+
+      {/* Panel de marca (solo escritorio) — imagen sola, sin texto encima */}
       <div className="relative hidden overflow-hidden bg-institucional-950 lg:block">
         <Image
           src="/marca/hero-login.webp"
@@ -97,7 +116,7 @@ export default function PaginaLogin() {
       </div>
 
       {/* Formulario */}
-      <div className="flex flex-col justify-center bg-institucional-50 px-8 py-14 sm:px-14">
+      <div className="flex flex-col justify-start bg-institucional-50 px-8 pb-10 pt-6 sm:px-14 lg:justify-center lg:py-14">
         <div className="mx-auto w-full max-w-sm">
           {paso === "credenciales" ? (
             <>
