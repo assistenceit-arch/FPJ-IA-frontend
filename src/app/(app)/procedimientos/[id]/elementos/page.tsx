@@ -293,6 +293,14 @@ function FormularioNuevoElemento({
   );
   const [ubicacionHallazgo, setUbicacionHallazgo] = useState("");
   const [direccionIncautacion, setDireccionIncautacion] = useState("");
+  // Adenda 2026-08-26: observación puntual sobre el elemento, a
+  // solicitud del usuario -- mismo patrón que esposas/lesiones (Sí/No +
+  // texto libre condicional). El backend ya tenía todo listo desde
+  // hace tiempo (campo `observaciones` en ElementoIncautado, con la
+  // leyenda "Sin observaciones." como valor por defecto en el Acta de
+  // Incautación) -- solo faltaba exponerlo en este formulario.
+  const [tieneObservacionElemento, setTieneObservacionElemento] = useState<boolean | null>(null);
+  const [observacionElemento, setObservacionElemento] = useState("");
   const [cantidadEmpaques, setCantidadEmpaques] = useState("");
   const [tipoEmpaque, setTipoEmpaque] = useState("");
   const [tipoSustancia, setTipoSustancia] = useState("");
@@ -349,12 +357,24 @@ function FormularioNuevoElemento({
       setError("Indica el contexto y los criterios de sospecha para este elemento.");
       return;
     }
+    if (tieneObservacionElemento === null) {
+      setError("Indica si hay alguna observación respecto a este elemento.");
+      return;
+    }
+    if (tieneObservacionElemento && !observacionElemento.trim()) {
+      setError("Escribe la observación, o marca \"No\" si no hay ninguna.");
+      return;
+    }
     setCargando(true);
     try {
       const cuerpo: Record<string, unknown> = {
         tipoElemento,
         ubicacionHallazgo: ubicacionHallazgo || undefined,
         direccionIncautacion,
+        // Al marcar "No" se deja sin enviar -- el backend ya muestra
+        // "Sin observaciones." como valor por defecto en el Acta de
+        // Incautación cuando este campo llega vacío.
+        observaciones: tieneObservacionElemento ? observacionElemento.trim() : undefined,
       };
       if (esHurto) {
         Object.assign(cuerpo, {
@@ -867,6 +887,37 @@ function FormularioNuevoElemento({
             </Campo>
           </div>
         </div>
+      )}
+
+      <Campo etiqueta="¿Hay alguna observación respecto a este elemento?" requerido>
+        <div className="mt-1 flex gap-3">
+          {[true, false].map((valor) => (
+            <button
+              type="button"
+              key={String(valor)}
+              onClick={() => setTieneObservacionElemento(valor)}
+              className={`rounded-md border px-3 py-2 font-sans text-sm transition-colors ${
+                tieneObservacionElemento === valor
+                  ? "border-acento bg-acento-light text-acento-hover"
+                  : "border-institucional-100 text-institucional-700 hover:bg-institucional-50"
+              }`}
+            >
+              {valor ? "Sí" : "No"}
+            </button>
+          ))}
+        </div>
+      </Campo>
+      {tieneObservacionElemento && (
+        <Campo etiqueta="Observación" requerido>
+          <textarea
+            required
+            rows={2}
+            className={claseInput}
+            placeholder="Deja aquí la constancia que consideres pertinente sobre este elemento"
+            value={observacionElemento}
+            onChange={(e) => setObservacionElemento(e.target.value)}
+          />
+        </Campo>
       )}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
