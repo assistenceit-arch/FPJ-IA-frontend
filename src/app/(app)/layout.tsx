@@ -45,6 +45,12 @@ export default function LayoutApp({ children }: { children: React.ReactNode }) {
                 Panel de administración
               </Link>
             )}
+            <Link
+              href="/mi-cuenta"
+              className="rounded-md border border-institucional-700 px-3 py-1.5 text-institucional-50 transition-colors hover:bg-institucional-800"
+            >
+              Mi cuenta
+            </Link>
             {correo && <span className="hidden sm:inline">{correo}</span>}
             <button
               onClick={manejarCierreSesion}
