@@ -217,8 +217,62 @@ export default function BloqueDocumentos() {
   // rondas de preguntas antes de poder generar el documento.
   const [preguntaFpj5, setPreguntaFpj5] = useState<string | null>(null);
   const [respuestaFpj5, setRespuestaFpj5] = useState("");
-  const [aclaracionesFpj5, setAclaracionesFpj5] = useState<string[]>([]);
   const [generandoFpj5, setGenerandoFpj5] = useState(false);
+  // El trabajo de la cola en segundo plano se identifica una sola vez
+  // al crearlo -- las rondas de aclaración se responden sobre ESE
+  // mismo trabajo (el backend acumula las respuestas), no se crea uno
+  // nuevo por cada pregunta.
+  const [trabajoFpj5Id, setTrabajoFpj5Id] = useState<string | null>(null);
+
+  // Adenda 2026-08-29: cola de generación en segundo plano, a solicitud
+  // del usuario -- tras confirmar con una prueba de carga real que
+  // generar un documento pesado (1-2 minutos) podía dejar a otros
+  // funcionarios esperando hasta 84 segundos por algo tan simple como
+  // consultar su lista de procedimientos. En vez de esperar la
+  // respuesta directa del servidor, ahora se crea un "trabajo", y se
+  // pregunta cada 2 segundos si ya terminó -- el servidor responde de
+  // inmediato en ambos casos, nunca se queda "colgado" esperando.
+  interface ResultadoTrabajo {
+    estado: "Completado" | "Fallido" | "RequiereAclaracion";
+    documentoGeneradoId?: string;
+    mensajeError?: string;
+    preguntaAclaracion?: string;
+    trabajoId: string;
+  }
+
+  async function esperarResultadoTrabajo(trabajoId: string): Promise<ResultadoTrabajo> {
+    const INTERVALO_MS = 2000;
+    for (;;) {
+      const estado = await api.get<{
+        id: string;
+        estado: string;
+        documentoGeneradoId?: string;
+        mensajeError?: string;
+        preguntaAclaracion?: string;
+      }>(`/trabajos-generacion/${trabajoId}`);
+
+      if (
+        estado.estado === "Completado" ||
+        estado.estado === "Fallido" ||
+        estado.estado === "RequiereAclaracion"
+      ) {
+        return { ...estado, trabajoId } as ResultadoTrabajo;
+      }
+      // "Pendiente" o "Procesando" -- seguir esperando.
+      await new Promise((resolve) => setTimeout(resolve, INTERVALO_MS));
+    }
+  }
+
+  async function crearYEsperarTrabajo(
+    tipoDocumento: string,
+    opciones: { capturadoId?: string; elementoId?: string; aclaraciones?: string[] } = {},
+  ): Promise<ResultadoTrabajo> {
+    const { id: trabajoId } = await api.post<{ id: string; estado: string }>(
+      `/procedimientos/${id}/trabajos-generacion`,
+      { tipoDocumento, ...opciones },
+    );
+    return esperarResultadoTrabajo(trabajoId);
+  }
 
   async function cargarTodo() {
     const [personas, docs, estadoPago, procedimiento, colectivos] = await Promise.all([
@@ -274,11 +328,18 @@ export default function BloqueDocumentos() {
     setBotonCargando(claveBoton);
     setError(null);
     try {
-      const doc = await api.post<DocumentoGenerado>(
-        `/procedimientos/${id}/capturados/${capturado.id}/documentos/${endpoint}`,
-      );
+      const resultado = await crearYEsperarTrabajo(tipoDocumento, { capturadoId: capturado.id });
+      if (resultado.estado === "Fallido") {
+        setError(resultado.mensajeError ?? "No fue posible generar el documento.");
+        return;
+      }
       await cargarTodo();
-      await descargar(doc.id, nombreArchivo(tipoDocumento, `${capturado.primerNombre}_${capturado.primerApellido}`));
+      if (resultado.documentoGeneradoId) {
+        await descargar(
+          resultado.documentoGeneradoId,
+          nombreArchivo(tipoDocumento, `${capturado.primerNombre}_${capturado.primerApellido}`),
+        );
+      }
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "No fue posible generar el documento.");
     } finally {
@@ -292,11 +353,15 @@ export default function BloqueDocumentos() {
     setBotonCargando("ACTA_COLECTIVA");
     setError(null);
     try {
-      const doc = await api.post<DocumentoGenerado>(
-        `/procedimientos/${id}/documentos/acta-incautacion-colectiva`,
-      );
+      const resultado = await crearYEsperarTrabajo("ACTA_COLECTIVA");
+      if (resultado.estado === "Fallido") {
+        setError(resultado.mensajeError ?? "No fue posible generar el documento.");
+        return;
+      }
       await cargarTodo();
-      await descargar(doc.id, nombreArchivo("ACTA_COLECTIVA"));
+      if (resultado.documentoGeneradoId) {
+        await descargar(resultado.documentoGeneradoId, nombreArchivo("ACTA_COLECTIVA"));
+      }
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "No fue posible generar el documento.");
     } finally {
@@ -314,11 +379,18 @@ export default function BloqueDocumentos() {
     setBotonCargando(claveBoton);
     setError(null);
     try {
-      const doc = await api.post<DocumentoGenerado>(
-        `/procedimientos/${id}/elementos/${elemento.id}/documentos/${endpoint}`,
-      );
+      const resultado = await crearYEsperarTrabajo(tipoDocumento, { elementoId: elemento.id });
+      if (resultado.estado === "Fallido") {
+        setError(resultado.mensajeError ?? "No fue posible generar el documento.");
+        return;
+      }
       await cargarTodo();
-      await descargar(doc.id, nombreArchivo(tipoDocumento, `${nombrePersona}_${elemento.descripcionBase}`));
+      if (resultado.documentoGeneradoId) {
+        await descargar(
+          resultado.documentoGeneradoId,
+          nombreArchivo(tipoDocumento, `${nombrePersona}_${elemento.descripcionBase}`),
+        );
+      }
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "No fue posible generar el documento.");
     } finally {
@@ -326,50 +398,61 @@ export default function BloqueDocumentos() {
     }
   }
 
-  async function intentarGenerarFpj5(lista: string[]) {
-    setError(null);
-    try {
-      const doc = await api.post<DocumentoGenerado>(`/procedimientos/${id}/documentos/fpj5-informe-captura`, {
-        aclaraciones: lista,
-      });
-      setGenerandoFpj5(false);
-      setPreguntaFpj5(null);
-      setAclaracionesFpj5([]);
-      await cargarTodo();
-      await descargar(doc.id, nombreArchivo("FPJ5"));
-    } catch (err) {
-      if (err instanceof ApiError && err.status === 409) {
-        const cuerpo = err.cuerpo as { aclaracionRequerida?: boolean; pregunta?: string } | null;
-        if (cuerpo?.aclaracionRequerida && cuerpo.pregunta) {
-          setPreguntaFpj5(cuerpo.pregunta);
-          return;
-        }
-      }
-      setError(err instanceof ApiError ? err.message : "No fue posible generar el FPJ-5.");
-      setGenerandoFpj5(false);
-      setPreguntaFpj5(null);
+  async function manejarResultadoFpj5(resultado: ResultadoTrabajo) {
+    if (resultado.estado === "RequiereAclaracion") {
+      setTrabajoFpj5Id(resultado.trabajoId);
+      setPreguntaFpj5(resultado.preguntaAclaracion ?? null);
+      return;
+    }
+    setGenerandoFpj5(false);
+    setPreguntaFpj5(null);
+    setTrabajoFpj5Id(null);
+    if (resultado.estado === "Fallido") {
+      setError(resultado.mensajeError ?? "No fue posible generar el FPJ-5.");
+      return;
+    }
+    await cargarTodo();
+    if (resultado.documentoGeneradoId) {
+      await descargar(resultado.documentoGeneradoId, nombreArchivo("FPJ5"));
     }
   }
 
   function iniciarFpj5() {
     setGenerandoFpj5(true);
-    setAclaracionesFpj5([]);
-    void intentarGenerarFpj5([]);
+    setPreguntaFpj5(null);
+    setError(null);
+    crearYEsperarTrabajo("FPJ5")
+      .then(manejarResultadoFpj5)
+      .catch((err) => {
+        setError(err instanceof ApiError ? err.message : "No fue posible generar el FPJ-5.");
+        setGenerandoFpj5(false);
+        setPreguntaFpj5(null);
+      });
   }
 
   function enviarAclaracionFpj5() {
-    if (!respuestaFpj5.trim()) return;
-    const nuevas = [...aclaracionesFpj5, respuestaFpj5.trim()];
-    setAclaracionesFpj5(nuevas);
+    if (!respuestaFpj5.trim() || !trabajoFpj5Id) return;
+    const respuesta = respuestaFpj5.trim();
+    const trabajoId = trabajoFpj5Id;
     setRespuestaFpj5("");
-    void intentarGenerarFpj5(nuevas);
+    setPreguntaFpj5(null); // vuelve a la vista de "generando..." mientras se reprocesa
+    api
+      .patch(`/trabajos-generacion/${trabajoId}/responder-aclaracion`, { respuesta })
+      .then(() => esperarResultadoTrabajo(trabajoId))
+      .then(manejarResultadoFpj5)
+      .catch((err) => {
+        setError(err instanceof ApiError ? err.message : "No fue posible continuar con la generación.");
+        setGenerandoFpj5(false);
+        setPreguntaFpj5(null);
+        setTrabajoFpj5Id(null);
+      });
   }
 
   function cancelarFpj5() {
     setGenerandoFpj5(false);
     setPreguntaFpj5(null);
-    setAclaracionesFpj5([]);
     setRespuestaFpj5("");
+    setTrabajoFpj5Id(null);
   }
 
   function buscarGenerado(
