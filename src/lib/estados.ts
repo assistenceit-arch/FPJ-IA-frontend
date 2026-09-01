@@ -38,25 +38,33 @@ export function estadoIntervinientes(cantidad: number | null): EstadoBloque {
 }
 
 /**
- * Bloque 4 — Elementos incautados. Cada elemento se valida por completo
- * antes de poder guardarse (no hay estado a medias por elemento), así que,
- * igual que Intervinientes, es un estado binario: sin elementos = vacío,
- * al menos uno registrado = completo.
- */
-/**
  * Bloque de Elementos incautados.
  *
- * "Vacío" únicamente mientras el dato no se ha cargado (null — depende de
- * que Intervinientes ya haya cargado, ver layout.tsx). Adenda 2026-08-22:
- * antes, cero elementos SIEMPRE quedaba en "vacío" indefinidamente, sin
- * importar si el procedimiento genuinamente no incautó nada (bug real
- * reportado tras caso en vivo de Hurto) — no hay una razón operativa
- * para bloquear un procedimiento que válidamente no tuvo elementos que
- * incautar. Ahora, una vez cargado el dato, cero elementos es tan
- * "completo" como cualquier cantidad mayor.
+ * Historia de este bloque (para no repetir errores ya corregidos):
+ * 1) Originalmente, cero elementos SIEMPRE quedaba en "vacío"
+ *    indefinidamente, sin importar si el procedimiento genuinamente no
+ *    incautó nada (bug real reportado tras caso en vivo de Hurto) — no
+ *    hay una razón operativa para bloquear un procedimiento que
+ *    válidamente no tuvo elementos que incautar.
+ * 2) Adenda 2026-08-22: se "corrigió" haciendo que cero elementos fuera
+ *    automáticamente "completo" -- pero esto sobrecorrigió: el bloque
+ *    quedaba en verde ni bien se creaba el procedimiento, sin que el
+ *    funcionario hubiera dicho nada (otro bug real, reportado el
+ *    2026-09-01).
+ * 3) Corrección 2026-09-01 (esta): se distingue explícitamente "sin
+ *    contestar todavía" de "el funcionario confirmó que no hay
+ *    elementos" -- mismo patrón "N/A explícito vs. campo vacío sin
+ *    contestar" ya usado en otras partes de la aplicación. Sin
+ *    elementos Y sin confirmación explícita = pendiente (🟡), no
+ *    completo.
  */
-export function estadoElementos(cantidadElementos: number | null): EstadoBloque {
-  return cantidadElementos === null ? "vacio" : "completo";
+export function estadoElementos(
+  cantidadElementos: number | null,
+  sinElementosConfirmado: boolean | null | undefined,
+): EstadoBloque {
+  if (cantidadElementos === null) return "vacio";
+  if (cantidadElementos > 0) return "completo";
+  return sinElementosConfirmado === true ? "completo" : "pendiente";
 }
 
 /**

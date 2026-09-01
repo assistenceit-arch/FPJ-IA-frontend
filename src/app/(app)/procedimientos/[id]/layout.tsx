@@ -142,7 +142,12 @@ export default function LayoutProcedimiento({ children }: { children: React.Reac
             capturados ?? [],
           ),
         },
-        { slug: "elementos", numero: 5, titulo: "Elementos incautados", estado: estadoElementos(cantidadElementos) },
+        {
+          slug: "elementos",
+          numero: 5,
+          titulo: "Elementos incautados",
+          estado: estadoElementos(cantidadElementos, procedimiento?.sinElementosIncautados),
+        },
         { slug: "relato", numero: 6, titulo: "Relato de los hechos", estado: estadoRelato(actuaciones) },
         {
           slug: "pago",

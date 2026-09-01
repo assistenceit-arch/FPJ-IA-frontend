@@ -14,6 +14,9 @@ export interface Procedimiento {
   activo: boolean;
   exoneradoPago: boolean;
   edicionDesbloqueada: boolean;
+  // Adenda 2026-09-01: null = sin contestar, true = el funcionario
+  // confirmó explícitamente que no hay elementos incautados.
+  sinElementosIncautados: boolean | null;
 }
 
 export interface FuncionarioActuante {

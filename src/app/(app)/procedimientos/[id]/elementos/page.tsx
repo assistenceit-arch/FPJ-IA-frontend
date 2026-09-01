@@ -33,6 +33,52 @@ interface Elemento {
   direccionIncautacion: string;
 }
 
+// Adenda 2026-09-01: detalle completo de un elemento -- se consulta
+// solo al abrir la edición (la lista normal solo necesita el resumen
+// de arriba). Incluye los 5 posibles detalles anidados (según el tipo,
+// solo UNO de ellos viene con datos, los demás llegan null).
+interface ElementoDetalle extends Elemento {
+  observaciones: string | null;
+  victimaId: string | null;
+  recuperado: boolean | null;
+  recuperadoPor: string | null;
+  fuenteVerificacionHurto: string | null;
+  nombreAplicativo: string | null;
+  numeroReporteAplicativo: string | null;
+  numeroDenuncia: string | null;
+  entidadDenuncia: string | null;
+  fechaDenuncia: string | null;
+  denuncianteNombre: string | null;
+  denuncianteDocumento: string | null;
+  denuncianteTelefono: string | null;
+  contextoExhibicion: string | null;
+  criteriosSospecha: string | null;
+  detalleSustancia: {
+    cantidadEmpaques: number;
+    tipoEmpaque: string;
+    tipoSustancia: string;
+    color: string;
+    caracteristicas: string;
+  } | null;
+  detalleDinero: { valorTotal: number | string; denominaciones: string } | null;
+  detalleCelular: { marca: string; color: string; imei: string | null } | null;
+  detalleArma: {
+    tipoArma: string;
+    marca: string | null;
+    calibre: string | null;
+    color: string | null;
+    cachaMaterial: string | null;
+    cachaColor: string | null;
+    serial: string | null;
+    estadoSerial: string;
+    estadoArma: string;
+    cantidadMuniciones: number | null;
+    calibreMunicion: string | null;
+    cantidadCargadores: number | null;
+  } | null;
+  detalleOtro: { descripcionManual: string } | null;
+}
+
 const claseInput =
   "block w-full rounded-md border border-institucional-100 bg-white px-3 py-2 font-sans text-sm text-institucional-950 outline-none focus:border-acento";
 
@@ -64,14 +110,48 @@ export default function BloqueElementos() {
   const [elementosColectivos, setElementosColectivos] = useState<Elemento[]>([]);
   const [victimas, setVictimas] = useState<VictimaResumen[]>([]);
   const [delito, setDelito] = useState<string>("");
+  // Adenda 2026-09-01: bug real reportado tras prueba en vivo -- este
+  // bloque se marcaba en verde automáticamente sin haber registrado
+  // ningún elemento. Este campo distingue "sin contestar todavía" de
+  // "el funcionario confirmó que no hay elementos" (ver comentario en
+  // schema.prisma del backend).
+  const [sinElementos, setSinElementos] = useState<boolean | null>(null);
+  const [guardandoSinElementos, setGuardandoSinElementos] = useState(false);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
+  // Adenda 2026-09-01: elemento que se está editando -- null cuando el
+  // formulario está en modo "crear uno nuevo". Se guarda junto con si
+  // pertenece a una persona (capturadoId) o es colectivo, ya que la
+  // ruta de la API es distinta para cada caso.
+  const [elementoEditando, setElementoEditando] = useState<{
+    detalle: ElementoDetalle;
+    capturadoId: string | null;
+  } | null>(null);
+  const [cargandoEdicion, setCargandoEdicion] = useState<string | null>(null);
+
+  async function iniciarEdicion(capturadoId: string | null, elementoId: string) {
+    setCargandoEdicion(elementoId);
+    setError(null);
+    try {
+      const ruta =
+        capturadoId === null
+          ? `/procedimientos/${id}/elementos-colectivos/${elementoId}`
+          : `/procedimientos/${id}/capturados/${capturadoId}/elementos/${elementoId}`;
+      const detalle = await api.get<ElementoDetalle>(ruta);
+      setElementoEditando({ detalle, capturadoId });
+      setMostrarFormulario(true);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "No fue posible cargar el elemento para editarlo.");
+    } finally {
+      setCargandoEdicion(null);
+    }
+  }
 
   async function cargarTodo() {
     const [personas, procedimiento, colectivos, victimasDelProcedimiento] = await Promise.all([
       api.get<CapturadoResumen[]>(`/procedimientos/${id}/capturados`),
-      api.get<{ delito: string }>(`/procedimientos/${id}`),
+      api.get<{ delito: string; sinElementosIncautados: boolean | null }>(`/procedimientos/${id}`),
       api.get<Elemento[]>(`/procedimientos/${id}/elementos-colectivos`),
       // Adenda 2026-08-21 (módulo Hurto): víctimas, para poder vincular
       // cada elemento hurtado a la víctima correspondiente.
@@ -79,6 +159,7 @@ export default function BloqueElementos() {
     ]);
     setIntervinientes(personas);
     setDelito(procedimiento.delito);
+    setSinElementos(procedimiento.sinElementosIncautados);
     setElementosColectivos(colectivos);
     setVictimas(victimasDelProcedimiento);
     const listas = await Promise.all(
@@ -88,6 +169,22 @@ export default function BloqueElementos() {
     personas.forEach((p, i) => (mapa[p.id] = listas[i]));
     setElementosPorPersona(mapa);
     setCargando(false);
+  }
+
+  const totalElementosRegistrados =
+    elementosColectivos.length + Object.values(elementosPorPersona).reduce((total, lista) => total + lista.length, 0);
+
+  async function confirmarSinElementos() {
+    setGuardandoSinElementos(true);
+    setError(null);
+    try {
+      await api.patch(`/procedimientos/${id}`, { sinElementosIncautados: true });
+      setSinElementos(true);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "No fue posible guardar esta confirmación.");
+    } finally {
+      setGuardandoSinElementos(false);
+    }
   }
 
   useEffect(() => {
@@ -157,15 +254,52 @@ export default function BloqueElementos() {
         </div>
       )}
 
+      {/* Adenda 2026-09-01: bug real reportado tras prueba en vivo -- este
+          bloque se marcaba en verde automáticamente al crear el
+          procedimiento, sin haber registrado ningún elemento. Hay
+          procedimientos legítimos sin elementos incautados -- este aviso
+          permite al funcionario confirmarlo explícitamente, en vez de que
+          el sistema lo asuma por defecto. */}
+      {intervinientes.length > 0 && totalElementosRegistrados === 0 && sinElementos !== true && (
+        <div className="mt-6 rounded-md border border-acento/30 bg-acento/10 px-4 py-3">
+          <p className="font-sans text-sm text-institucional-900">
+            Aún no has registrado ningún elemento incautado. Si este procedimiento efectivamente no tiene
+            elementos incautados, confírmalo aquí para marcar el bloque como completo.
+          </p>
+          <button
+            type="button"
+            onClick={confirmarSinElementos}
+            disabled={guardandoSinElementos}
+            className="mt-3 rounded-md border border-institucional-800 px-3 py-1.5 font-sans text-sm font-semibold text-institucional-900 transition-colors hover:bg-institucional-50 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {guardandoSinElementos ? "Guardando…" : "No hay elementos incautados en este procedimiento"}
+          </button>
+        </div>
+      )}
+
+      {intervinientes.length > 0 && totalElementosRegistrados === 0 && sinElementos === true && (
+        <div className="mt-6 rounded-md border border-institucional-100 bg-institucional-50 px-4 py-3">
+          <p className="font-sans text-sm text-institucional-900">
+            ✅ Confirmaste que este procedimiento no tiene elementos incautados. Si te equivocaste, solo
+            registra un elemento con el botón de arriba y esta confirmación se actualizará automáticamente.
+          </p>
+        </div>
+      )}
+
       {mostrarFormulario && (
         <FormularioNuevoElemento
           procedimientoId={id}
           intervinientes={intervinientes}
           delito={delito}
           victimas={victimas}
-          onCancelar={() => setMostrarFormulario(false)}
+          elementoEditando={elementoEditando}
+          onCancelar={() => {
+            setMostrarFormulario(false);
+            setElementoEditando(null);
+          }}
           onCreado={async () => {
             setMostrarFormulario(false);
+            setElementoEditando(null);
             await cargarTodo();
           }}
         />
@@ -193,13 +327,23 @@ export default function BloqueElementos() {
                     </p>
                     <p className="mt-0.5 font-sans text-sm text-institucional-950">{el.descripcionBase}</p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => eliminarElementoColectivo(el.id)}
-                    className="shrink-0 font-sans text-xs text-estado-error hover:underline"
-                  >
-                    Eliminar
-                  </button>
+                  <div className="flex shrink-0 items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => iniciarEdicion(null, el.id)}
+                      disabled={cargandoEdicion === el.id}
+                      className="font-sans text-xs text-institucional-800 hover:underline disabled:opacity-50"
+                    >
+                      {cargandoEdicion === el.id ? "Cargando…" : "Editar"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => eliminarElementoColectivo(el.id)}
+                      className="font-sans text-xs text-estado-error hover:underline"
+                    >
+                      Eliminar
+                    </button>
+                  </div>
                 </li>
               ))}
             </ul>
@@ -224,13 +368,23 @@ export default function BloqueElementos() {
                         </p>
                         <p className="mt-0.5 font-sans text-sm text-institucional-950">{el.descripcionBase}</p>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => eliminarElemento(persona.id, el.id)}
-                        className="shrink-0 font-sans text-xs text-estado-error hover:underline"
-                      >
-                        Eliminar
-                      </button>
+                      <div className="flex shrink-0 items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() => iniciarEdicion(persona.id, el.id)}
+                          disabled={cargandoEdicion === el.id}
+                          className="font-sans text-xs text-institucional-800 hover:underline disabled:opacity-50"
+                        >
+                          {cargandoEdicion === el.id ? "Cargando…" : "Editar"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => eliminarElemento(persona.id, el.id)}
+                          className="font-sans text-xs text-estado-error hover:underline"
+                        >
+                          Eliminar
+                        </button>
+                      </div>
                     </li>
                   ))}
                 </ul>
@@ -248,6 +402,7 @@ function FormularioNuevoElemento({
   intervinientes,
   delito,
   victimas,
+  elementoEditando,
   onCancelar,
   onCreado,
 }: {
@@ -255,29 +410,44 @@ function FormularioNuevoElemento({
   intervinientes: CapturadoResumen[];
   delito: string;
   victimas: VictimaResumen[];
+  elementoEditando: { detalle: ElementoDetalle; capturadoId: string | null } | null;
   onCancelar: () => void;
   onCreado: () => void;
 }) {
+  const editando = elementoEditando?.detalle ?? null;
+  const detalleTipado =
+    editando?.detalleSustancia ??
+    editando?.detalleDinero ??
+    editando?.detalleCelular ??
+    editando?.detalleArma ??
+    editando?.detalleOtro ??
+    null;
   const esArmas = delito === DELITO_ARMAS;
   // Adenda 2026-08-21 (módulo Hurto): campos exclusivos de este delito.
   const esHurto = delito === DELITO_HURTO;
-  const [victimaId, setVictimaId] = useState("");
-  const [recuperado, setRecuperado] = useState<"" | "SI" | "NO">("");
-  const [recuperadoPor, setRecuperadoPor] = useState("");
+  const [victimaId, setVictimaId] = useState(editando?.victimaId ?? "");
+  const [recuperado, setRecuperado] = useState<"" | "SI" | "NO">(
+    editando?.recuperado === true ? "SI" : editando?.recuperado === false ? "NO" : "",
+  );
+  const [recuperadoPor, setRecuperadoPor] = useState(editando?.recuperadoPor ?? "");
   // Adenda 2026-08-23 (módulo Receptación): campos exclusivos de este
   // delito.
   const esReceptacion = delito === DELITO_RECEPTACION;
   const [fuenteVerificacionHurto, setFuenteVerificacionHurto] = useState<"" | "APLICATIVO" | "DENUNCIA">(
-    "",
+    (editando?.fuenteVerificacionHurto as "APLICATIVO" | "DENUNCIA" | undefined) ?? "",
   );
-  const [nombreAplicativo, setNombreAplicativo] = useState("");
-  const [numeroReporteAplicativo, setNumeroReporteAplicativo] = useState("");
-  const [numeroDenuncia, setNumeroDenuncia] = useState("");
-  const [entidadDenuncia, setEntidadDenuncia] = useState("");
-  const [fechaDenuncia, setFechaDenuncia] = useState("");
-  const [denuncianteNombre, setDenuncianteNombre] = useState("");
-  const [denuncianteDocumento, setDenuncianteDocumento] = useState("");
-  const [denuncianteTelefono, setDenuncianteTelefono] = useState("");
+  const [nombreAplicativo, setNombreAplicativo] = useState(editando?.nombreAplicativo ?? "");
+  const [numeroReporteAplicativo, setNumeroReporteAplicativo] = useState(
+    editando?.numeroReporteAplicativo ?? "",
+  );
+  const [numeroDenuncia, setNumeroDenuncia] = useState(editando?.numeroDenuncia ?? "");
+  const [entidadDenuncia, setEntidadDenuncia] = useState(editando?.entidadDenuncia ?? "");
+  const [fechaDenuncia, setFechaDenuncia] = useState(
+    editando?.fechaDenuncia ? editando.fechaDenuncia.slice(0, 10) : "",
+  );
+  const [denuncianteNombre, setDenuncianteNombre] = useState(editando?.denuncianteNombre ?? "");
+  const [denuncianteDocumento, setDenuncianteDocumento] = useState(editando?.denuncianteDocumento ?? "");
+  const [denuncianteTelefono, setDenuncianteTelefono] = useState(editando?.denuncianteTelefono ?? "");
   // Adenda 2026-08-23 (delitos contra la fe pública: Uso de Documento
   // Falso, Falsedad Personal, Tráfico de Moneda Falsa): campos
   // compartidos entre los tres.
@@ -285,46 +455,82 @@ function FormularioNuevoElemento({
     delito === DELITO_USO_DOCUMENTO_FALSO ||
     delito === DELITO_FALSEDAD_PERSONAL ||
     delito === DELITO_TRAFICO_MONEDA_FALSA;
-  const [contextoExhibicion, setContextoExhibicion] = useState("");
-  const [criteriosSospecha, setCriteriosSospecha] = useState("");
-  const [capturadoId, setCapturadoId] = useState(intervinientes[0]?.id ?? "");
-  const [tipoElemento, setTipoElemento] = useState<"SUSTANCIA" | "DINERO" | "CELULAR" | "ARMA" | "OTRO">(
-    esArmas ? "ARMA" : "SUSTANCIA",
+  const [contextoExhibicion, setContextoExhibicion] = useState(editando?.contextoExhibicion ?? "");
+  const [criteriosSospecha, setCriteriosSospecha] = useState(editando?.criteriosSospecha ?? "");
+  const [capturadoId, setCapturadoId] = useState(
+    editando
+      ? elementoEditando!.capturadoId ?? SIN_INDIVIDUALIZAR
+      : intervinientes[0]?.id ?? "",
   );
-  const [ubicacionHallazgo, setUbicacionHallazgo] = useState("");
-  const [direccionIncautacion, setDireccionIncautacion] = useState("");
+  const [tipoElemento, setTipoElemento] = useState<"SUSTANCIA" | "DINERO" | "CELULAR" | "ARMA" | "OTRO">(
+    editando?.tipoElemento ?? (esArmas ? "ARMA" : "SUSTANCIA"),
+  );
+  const [ubicacionHallazgo, setUbicacionHallazgo] = useState(editando?.ubicacionHallazgo ?? "");
+  const [direccionIncautacion, setDireccionIncautacion] = useState(editando?.direccionIncautacion ?? "");
   // Adenda 2026-08-26: observación puntual sobre el elemento, a
   // solicitud del usuario -- mismo patrón que esposas/lesiones (Sí/No +
   // texto libre condicional). El backend ya tenía todo listo desde
   // hace tiempo (campo `observaciones` en ElementoIncautado, con la
   // leyenda "Sin observaciones." como valor por defecto en el Acta de
   // Incautación) -- solo faltaba exponerlo en este formulario.
-  const [tieneObservacionElemento, setTieneObservacionElemento] = useState<boolean | null>(null);
-  const [observacionElemento, setObservacionElemento] = useState("");
-  const [cantidadEmpaques, setCantidadEmpaques] = useState("");
-  const [tipoEmpaque, setTipoEmpaque] = useState("");
-  const [tipoSustancia, setTipoSustancia] = useState("");
-  const [color, setColor] = useState("");
-  const [caracteristicas, setCaracteristicas] = useState("");
-  const [valorTotal, setValorTotal] = useState("");
-  const [denominaciones, setDenominaciones] = useState("");
-  const [marca, setMarca] = useState("");
-  const [imei, setImei] = useState("");
-  const [descripcionManual, setDescripcionManual] = useState("");
+  const [tieneObservacionElemento, setTieneObservacionElemento] = useState<boolean | null>(
+    editando ? Boolean(editando.observaciones) : null,
+  );
+  const [observacionElemento, setObservacionElemento] = useState(editando?.observaciones ?? "");
+  const [cantidadEmpaques, setCantidadEmpaques] = useState(
+    editando?.detalleSustancia ? String(editando.detalleSustancia.cantidadEmpaques) : "",
+  );
+  const [tipoEmpaque, setTipoEmpaque] = useState(editando?.detalleSustancia?.tipoEmpaque ?? "");
+  const [tipoSustancia, setTipoSustancia] = useState(editando?.detalleSustancia?.tipoSustancia ?? "");
+  const [color, setColor] = useState(
+    editando?.detalleSustancia?.color ?? editando?.detalleCelular?.color ?? editando?.detalleArma?.color ?? "",
+  );
+  const [caracteristicas, setCaracteristicas] = useState(editando?.detalleSustancia?.caracteristicas ?? "");
+  const [valorTotal, setValorTotal] = useState(
+    editando?.detalleDinero ? String(editando.detalleDinero.valorTotal) : "",
+  );
+  const [denominaciones, setDenominaciones] = useState(editando?.detalleDinero?.denominaciones ?? "");
+  const [marca, setMarca] = useState(
+    editando?.detalleCelular?.marca ?? editando?.detalleArma?.marca ?? "",
+  );
+  const [imei, setImei] = useState(editando?.detalleCelular?.imei ?? "");
+  const [descripcionManual, setDescripcionManual] = useState(editando?.detalleOtro?.descripcionManual ?? "");
   // Adenda 2026-08-12: módulo de Porte Ilegal de Armas de Fuego.
-  const [tipoArma, setTipoArma] = useState<"PISTOLA" | "REVOLVER" | "ESCOPETA" | "FUSIL" | "HECHIZA">("PISTOLA");
+  const [tipoArma, setTipoArma] = useState<"PISTOLA" | "REVOLVER" | "ESCOPETA" | "FUSIL" | "HECHIZA">(
+    (editando?.detalleArma?.tipoArma as "PISTOLA" | "REVOLVER" | "ESCOPETA" | "FUSIL" | "HECHIZA" | undefined) ??
+      "PISTOLA",
+  );
   const [modelo, setModelo] = useState("");
-  const [calibre, setCalibre] = useState("");
-  const [cachaMaterial, setCachaMaterial] = useState("");
-  const [cachaColor, setCachaColor] = useState("");
-  const [serial, setSerial] = useState("");
+  const [calibre, setCalibre] = useState(editando?.detalleArma?.calibre ?? "");
+  const [cachaMaterial, setCachaMaterial] = useState(editando?.detalleArma?.cachaMaterial ?? "");
+  const [cachaColor, setCachaColor] = useState(editando?.detalleArma?.cachaColor ?? "");
+  const [serial, setSerial] = useState(editando?.detalleArma?.serial ?? "");
   const [estadoSerial, setEstadoSerial] = useState<
     "LEGIBLE" | "NO_PRESENTA" | "BORRADO" | "ALTERADO" | "NO_LEGIBLE" | ""
-  >("");
-  const [estadoArma, setEstadoArma] = useState<"BUEN_ESTADO" | "REGULAR_ESTADO" | "MAL_ESTADO">("BUEN_ESTADO");
-  const [cantidadMuniciones, setCantidadMuniciones] = useState("");
-  const [calibreMunicion, setCalibreMunicion] = useState("");
-  const [cantidadCargadores, setCantidadCargadores] = useState("");
+  >(
+    (editando?.detalleArma?.estadoSerial as
+      | "LEGIBLE"
+      | "NO_PRESENTA"
+      | "BORRADO"
+      | "ALTERADO"
+      | "NO_LEGIBLE"
+      | undefined) ?? "",
+  );
+  const [estadoArma, setEstadoArma] = useState<"BUEN_ESTADO" | "REGULAR_ESTADO" | "MAL_ESTADO">(
+    (editando?.detalleArma?.estadoArma as "BUEN_ESTADO" | "REGULAR_ESTADO" | "MAL_ESTADO" | undefined) ??
+      "BUEN_ESTADO",
+  );
+  const [cantidadMuniciones, setCantidadMuniciones] = useState(
+    editando?.detalleArma?.cantidadMuniciones !== null && editando?.detalleArma?.cantidadMuniciones !== undefined
+      ? String(editando.detalleArma.cantidadMuniciones)
+      : "",
+  );
+  const [calibreMunicion, setCalibreMunicion] = useState(editando?.detalleArma?.calibreMunicion ?? "");
+  const [cantidadCargadores, setCantidadCargadores] = useState(
+    editando?.detalleArma?.cantidadCargadores !== null && editando?.detalleArma?.cantidadCargadores !== undefined
+      ? String(editando.detalleArma.cantidadCargadores)
+      : "",
+  );
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -368,7 +574,11 @@ function FormularioNuevoElemento({
     setCargando(true);
     try {
       const cuerpo: Record<string, unknown> = {
-        tipoElemento,
+        // Adenda 2026-09-01: al editar, el tipo de elemento no se
+        // puede cambiar (ver ActualizarElementoDto en el backend) --
+        // se omite del cuerpo para no chocar con la validación
+        // (forbidNonWhitelisted).
+        ...(editando ? {} : { tipoElemento }),
         ubicacionHallazgo: ubicacionHallazgo || undefined,
         direccionIncautacion,
         // Al marcar "No" se deja sin enviar -- el backend ya muestra
@@ -445,14 +655,26 @@ function FormularioNuevoElemento({
         Object.assign(cuerpo, { descripcionManual });
       }
 
-      const ruta =
-        capturadoId === SIN_INDIVIDUALIZAR
-          ? `/procedimientos/${procedimientoId}/elementos-colectivos`
-          : `/procedimientos/${procedimientoId}/capturados/${capturadoId}/elementos`;
-      await api.post(ruta, cuerpo);
+      if (editando) {
+        const ruta =
+          elementoEditando!.capturadoId === null
+            ? `/procedimientos/${procedimientoId}/elementos-colectivos/${editando.id}`
+            : `/procedimientos/${procedimientoId}/capturados/${elementoEditando!.capturadoId}/elementos/${editando.id}`;
+        await api.patch(ruta, cuerpo);
+      } else {
+        const ruta =
+          capturadoId === SIN_INDIVIDUALIZAR
+            ? `/procedimientos/${procedimientoId}/elementos-colectivos`
+            : `/procedimientos/${procedimientoId}/capturados/${capturadoId}/elementos`;
+        await api.post(ruta, cuerpo);
+      }
       onCreado();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "No fue posible registrar el elemento.");
+      setError(
+        err instanceof ApiError
+          ? err.message
+          : `No fue posible ${editando ? "guardar los cambios del" : "registrar el"} elemento.`,
+      );
     } finally {
       setCargando(false);
     }
@@ -463,9 +685,17 @@ function FormularioNuevoElemento({
       onSubmit={manejarEnvio}
       className="mt-6 space-y-4 rounded-lg border border-institucional-100 bg-white p-6 shadow-sm"
     >
+      <h2 className="font-display text-lg text-institucional-950">
+        {editando ? "Editar elemento" : "Nuevo elemento"}
+      </h2>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Campo etiqueta="Capturado/Aprehendido" requerido>
-          <select className={claseInput} value={capturadoId} onChange={(e) => setCapturadoId(e.target.value)}>
+          <select
+            className={claseInput}
+            value={capturadoId}
+            onChange={(e) => setCapturadoId(e.target.value)}
+            disabled={Boolean(editando)}
+          >
             {intervinientes.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.primerNombre} {p.primerApellido}
@@ -479,6 +709,7 @@ function FormularioNuevoElemento({
             className={claseInput}
             value={tipoElemento}
             onChange={(e) => setTipoElemento(e.target.value as typeof tipoElemento)}
+            disabled={Boolean(editando)}
           >
             {delito === DELITO_ESTUPEFACIENTES && <option value="SUSTANCIA">Sustancia</option>}
             {esArmas && <option value="ARMA">Arma de fuego</option>}
@@ -486,6 +717,12 @@ function FormularioNuevoElemento({
             <option value="CELULAR">Celular</option>
             <option value="OTRO">Otro</option>
           </select>
+          {editando && (
+            <p className="mt-1 font-sans text-xs text-institucional-700">
+              El tipo de elemento no se puede cambiar al editar — si te equivocaste de tipo, elimina este
+              elemento y regístralo de nuevo con el tipo correcto.
+            </p>
+          )}
         </Campo>
       </div>
 
@@ -951,7 +1188,7 @@ function FormularioNuevoElemento({
           disabled={cargando}
           className="rounded-md bg-acento px-4 py-2.5 font-sans text-sm font-semibold text-white shadow-sm transition-colors hover:bg-acento-hover disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {cargando ? "Guardando…" : "Guardar elemento"}
+          {cargando ? "Guardando…" : editando ? "Guardar cambios" : "Guardar elemento"}
         </button>
         <button
           type="button"
