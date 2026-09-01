@@ -36,6 +36,7 @@ interface ConfiguracionPagos {
 
 interface ProcedimientoResumen {
   tipoProcedimiento: "ESTANDAR" | "COMPLEJO";
+  exoneradoPago: boolean;
 }
 
 const claseInput =
@@ -175,23 +176,29 @@ export default function BloquePago() {
 
   if (cargando) return <p className="font-sans text-sm text-institucional-700">Cargando…</p>;
 
-  const necesitaRegistrar = !pago || pago.estadoPago === "Rechazado";
+  const exonerado = procedimiento?.exoneradoPago === true;
+  const necesitaRegistrar = !exonerado && (!pago || pago.estadoPago === "Rechazado");
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="font-display text-2xl text-institucional-950">7. Pago</h1>
-        {procedimiento?.tipoProcedimiento === "COMPLEJO" ? (
+        {exonerado && (
+          <p className="mt-1 rounded-md border border-estado-completo/30 bg-estado-completo/10 px-3 py-2.5 font-sans text-sm font-semibold text-estado-completo">
+            ✅ Usted ha sido exonerado del pago de este procedimiento.
+          </p>
+        )}
+        {!exonerado && procedimiento?.tipoProcedimiento === "COMPLEJO" ? (
           <p className="mt-1 font-sans text-sm text-institucional-700">
             Una vez verificado el pago por un administrador, uno de nuestros asesores especializados
             tomará contacto con usted en el menor tiempo posible.
           </p>
-        ) : (
+        ) : !exonerado ? (
           <p className="mt-1 font-sans text-sm text-institucional-700">
             El pago debe quedar <strong>Verificado</strong> por un administrador antes de poder generar
             documentos en el Bloque 8.
           </p>
-        )}
+        ) : null}
       </div>
 
       {error && (

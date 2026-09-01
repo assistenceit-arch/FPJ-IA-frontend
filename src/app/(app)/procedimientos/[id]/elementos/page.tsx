@@ -500,7 +500,6 @@ function FormularioNuevoElemento({
     (editando?.detalleArma?.tipoArma as "PISTOLA" | "REVOLVER" | "ESCOPETA" | "FUSIL" | "HECHIZA" | undefined) ??
       "PISTOLA",
   );
-  const [modelo, setModelo] = useState("");
   const [calibre, setCalibre] = useState(editando?.detalleArma?.calibre ?? "");
   const [cachaMaterial, setCachaMaterial] = useState(editando?.detalleArma?.cachaMaterial ?? "");
   const [cachaColor, setCachaColor] = useState(editando?.detalleArma?.cachaColor ?? "");
@@ -639,7 +638,6 @@ function FormularioNuevoElemento({
         Object.assign(cuerpo, {
           tipoArma,
           marca: marca || undefined,
-          modelo: modelo || undefined,
           calibre: calibre || undefined,
           color: color || undefined,
           cachaMaterial: cachaMaterial || undefined,
@@ -842,9 +840,6 @@ function FormularioNuevoElemento({
               value={marca}
               onChange={(e) => setMarca(e.target.value)}
             />
-          </Campo>
-          <Campo etiqueta="Modelo">
-            <input className={claseInput} value={modelo} onChange={(e) => setModelo(e.target.value)} />
           </Campo>
           <Campo etiqueta="Calibre">
             <input className={claseInput} value={calibre} onChange={(e) => setCalibre(e.target.value)} />
