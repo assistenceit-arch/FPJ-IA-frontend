@@ -763,6 +763,20 @@ export default function PanelAdministracion() {
                     {formatearValor(p.valor)} · registrado el{" "}
                     {new Date(p.createdAt).toLocaleDateString("es-CO")}
                   </p>
+                  {/* Adenda 2026-09-01, a solicitud del usuario: aviso
+                      explícito para procedimientos complejos -- al
+                      aprobar o exonerar el pago, todos los bloques del
+                      funcionario se desbloquean automáticamente, así
+                      que conviene coordinar con él/ella antes,
+                      especialmente si la asesoría especializada
+                      todavía no se ha resuelto. */}
+                  {p.procedimiento.tipoProcedimiento === "COMPLEJO" && (
+                    <p className="mt-2 rounded-md border border-acento/30 bg-acento/10 px-3 py-2 font-sans text-xs text-institucional-900">
+                      ⚠️ Antes de aprobar el pago de este procedimiento, por favor tome contacto con el
+                      funcionario, ya que al aprobar o exonerar el pago los bloques se habilitarán y el
+                      funcionario podrá llenar los formularios y generar la documentación.
+                    </p>
+                  )}
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <Link
