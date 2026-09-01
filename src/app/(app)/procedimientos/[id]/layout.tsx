@@ -245,7 +245,86 @@ export default function LayoutProcedimiento({ children }: { children: React.Reac
           </div>
         )}
         {children}
+
+        {/* Adenda 2026-09-01, a solicitud del usuario: botones de
+            navegación secuencial entre bloques, para que sea más
+            intuitivo pasar de uno a otro sin depender únicamente del
+            menú lateral. IMPORTANTE (WF-M1-007/008): esto es solo un
+            atajo adicional -- la navegación libre directa a cualquier
+            bloque (vía el menú, o una URL directa) sigue disponible
+            sin ningún paso obligatorio. Si el bloque siguiente está
+            bloqueado por pago pendiente (procedimiento complejo), el
+            botón se deshabilita igual que en el menú lateral, para no
+            prometer un acceso que el backend de todas formas
+            rechazaría. */}
+        {bloques && bloques.length > 0 && (
+          <NavegacionEntreBloques
+            procedimientoId={id}
+            bloques={bloques}
+            pathname={pathname}
+            bloqueadoPorPagoComplejo={bloqueadoPorPagoComplejo}
+          />
+        )}
       </section>
+    </div>
+  );
+}
+
+function NavegacionEntreBloques({
+  procedimientoId,
+  bloques,
+  pathname,
+  bloqueadoPorPagoComplejo,
+}: {
+  procedimientoId: string;
+  bloques: ItemBloque[];
+  pathname: string;
+  bloqueadoPorPagoComplejo: boolean;
+}) {
+  const indiceActual = bloques.findIndex((b) => pathname.endsWith(`/${b.slug}`));
+  if (indiceActual === -1) return null;
+
+  const anterior = indiceActual > 0 ? bloques[indiceActual - 1] : null;
+  const siguiente = indiceActual < bloques.length - 1 ? bloques[indiceActual + 1] : null;
+  // El Bloque 7 (Pago) nunca queda bloqueado -- es precisamente el que
+  // hay que diligenciar para desbloquear los demás.
+  const siguienteBloqueado =
+    siguiente !== null && bloqueadoPorPagoComplejo && siguiente.slug !== "pago";
+
+  return (
+    <div className="mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-institucional-100 pt-6">
+      {anterior ? (
+        <Link
+          href={`/procedimientos/${procedimientoId}/${anterior.slug}`}
+          className="rounded-md border border-institucional-100 bg-white px-4 py-2.5 font-sans text-sm text-institucional-900 shadow-sm transition-colors hover:bg-institucional-50"
+        >
+          ← Volver a {anterior.titulo}
+        </Link>
+      ) : (
+        <Link
+          href="/procedimientos"
+          className="rounded-md border border-institucional-100 bg-white px-4 py-2.5 font-sans text-sm text-institucional-900 shadow-sm transition-colors hover:bg-institucional-50"
+        >
+          ← Volver a Mis procedimientos
+        </Link>
+      )}
+
+      {siguiente &&
+        (siguienteBloqueado ? (
+          <span
+            title="Deshabilitado hasta que un administrador verifique el pago"
+            className="cursor-not-allowed rounded-md border border-institucional-100 bg-institucional-50 px-4 py-2.5 font-sans text-sm text-institucional-700/40"
+          >
+            🔒 Pasar a {siguiente.titulo}
+          </span>
+        ) : (
+          <Link
+            href={`/procedimientos/${procedimientoId}/${siguiente.slug}`}
+            className="rounded-md bg-acento px-4 py-2.5 font-sans text-sm font-semibold text-white shadow-sm transition-colors hover:bg-acento-hover"
+          >
+            Pasar a {siguiente.titulo} →
+          </Link>
+        ))}
     </div>
   );
 }
