@@ -222,7 +222,7 @@ export default function BloqueElementos() {
         <div>
           <h1 className="font-display text-2xl text-institucional-950">5. Elementos incautados</h1>
           <p className="mt-1 font-sans text-sm text-institucional-700">
-            Cada elemento se asocia a un capturado/aprehendido específico, o queda "sin individualizar"
+            Cada elemento se asocia a un capturado/aprehendido específico, o queda &ldquo;sin individualizar&rdquo;
             cuando no es posible atribuirlo a uno en particular (ej. hallado en un lugar común).
           </p>
         </div>
@@ -415,13 +415,6 @@ function FormularioNuevoElemento({
   onCreado: () => void;
 }) {
   const editando = elementoEditando?.detalle ?? null;
-  const detalleTipado =
-    editando?.detalleSustancia ??
-    editando?.detalleDinero ??
-    editando?.detalleCelular ??
-    editando?.detalleArma ??
-    editando?.detalleOtro ??
-    null;
   const esArmas = delito === DELITO_ARMAS;
   // Adenda 2026-08-21 (módulo Hurto): campos exclusivos de este delito.
   const esHurto = delito === DELITO_HURTO;
