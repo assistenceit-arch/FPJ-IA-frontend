@@ -547,6 +547,12 @@ export default function PanelAdministracion() {
         <p className="mt-1 font-sans text-sm text-institucional-700">
           Configuración de pagos, verificación centralizada, exoneraciones y gestión de usuarios.
         </p>
+        <Link
+          href="/admin/estadisticas"
+          className="mt-3 inline-block rounded-md border border-institucional-800 px-3 py-1.5 font-sans text-sm text-institucional-900 transition-colors hover:bg-institucional-50"
+        >
+          📊 Ver estadísticas
+        </Link>
       </div>
 
       {error && (
