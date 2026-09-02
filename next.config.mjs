@@ -20,11 +20,23 @@ import { withSentryConfig } from "@sentry/nextjs";
 // pareciera). La protección real de esta cabecera solo importa en
 // PRODUCCIÓN -- en desarrollo local no hay ningún atacante real del
 // que protegerse, así que se relaja únicamente ahí.
+// Corrección 2026-09-03 (segundo bug real encontrado, esta vez en
+// producción): incluso con un build de producción real, Next.js con
+// Turbopack sigue inyectando pequeños scripts propios en línea
+// directamente en el HTML (parte de su propio funcionamiento interno
+// -- no algo que este proyecto agregó), con un hash distinto en cada
+// carga de página. La forma "perfecta" de permitir esto de forma
+// segura usa códigos únicos por petición (nonces), pero es un cambio
+// más delicado que requiere pruebas cuidadosas en vivo -- mientras
+// tanto, se permite 'unsafe-inline' para scripts en TODOS los
+// ambientes (no solo desarrollo), manteniendo todas las demás
+// protecciones intactas (sigue bloqueando iframes ajenos, objetos
+// externos, restringe a dónde puede enviarse un formulario, etc.).
 const esProduccion = process.env.NODE_ENV === "production";
 
 const CSP = [
   "default-src 'self'",
-  esProduccion ? "script-src 'self'" : "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+  "script-src 'self' 'unsafe-inline'" + (esProduccion ? "" : " 'unsafe-eval'"),
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data:",
   "font-src 'self'",
