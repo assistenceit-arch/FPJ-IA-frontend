@@ -6,7 +6,7 @@ const nextConfig = {
 };
 
 // Adenda 2026-08-24: monitoreo y alertas de errores, a solicitud del
-// usuario. withSentryConfig es lo que hace que sentry.client.config.ts
+// usuario. withSentryConfig es lo que hace que instrumentation-client.ts
 // realmente se incluya en el paquete del navegador -- sin esto, solo
 // las configuraciones de servidor/edge funcionarían.
 export default withSentryConfig(nextConfig, {
@@ -17,7 +17,9 @@ export default withSentryConfig(nextConfig, {
   silent: true,
   org: process.env.SENTRY_ORG,
   project: process.env.SENTRY_PROJECT,
-  webpack: {
-    treeshake: { removeDebugLogging: true },
-  },
+  // Adenda 2026-09-02 (Etapa 2): se quitó la opción
+  // `webpack: { treeshake: { removeDebugLogging: true } }` -- era
+  // exclusiva del empaquetador viejo, y deja de tener efecto con
+  // Turbopack (obligatorio desde Next.js 16). Solo era una optimización
+  // menor de tamaño del paquete, no algo funcionalmente necesario.
 });

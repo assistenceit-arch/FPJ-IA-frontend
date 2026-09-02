@@ -1,23 +1,19 @@
-import { dirname } from "path";
-import { fileURLToPath } from "url";
-import { FlatCompat } from "@eslint/eslintrc";
+import nextCoreWebVitals from "eslint-config-next/core-web-vitals";
+import nextTypescript from "eslint-config-next/typescript";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-// Corrección 2026-09-02: el codemod oficial de Next.js (next-lint-to-eslint-cli)
-// generó una configuración que asumía que eslint-config-next exportaba
-// arreglos en formato "flat config" nativo -- pero, a la fecha, ese
-// paquete sigue exportando el formato clásico (`{extends: [...]}`) por
-// debajo. FlatCompat es el puente oficial y bien documentado para usar
-// configuraciones clásicas dentro de un eslint.config.mjs moderno,
-// hasta que Next.js termine su propia migración a flat config nativo.
-const compat = new FlatCompat({
-  baseDirectory: __dirname,
-});
-
+// Corrección 2026-09-02 (Etapa 2 de la actualización de Next.js): en
+// la versión 15, eslint-config-next todavía exportaba internamente el
+// formato clásico (`{extends: [...]}`), por lo que esta configuración
+// necesitaba pasar por FlatCompat (@eslint/eslintrc) como puente. A
+// partir de la versión 16, el paquete migró a exportar directamente
+// arreglos en formato "flat config" nativo -- ya no hace falta el
+// puente, la importación directa (esto es justo lo que el codemod
+// oficial de Next.js había intentado generar desde el principio, solo
+// que en su momento no correspondía todavía con lo que el paquete
+// realmente exportaba).
 const eslintConfig = [
-  ...compat.extends("next/core-web-vitals", "next/typescript"),
+  ...nextCoreWebVitals,
+  ...nextTypescript,
   {
     ignores: [
       "node_modules/**",
