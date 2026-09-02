@@ -4,14 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { api, ApiError } from "@/lib/api";
 import type { Procedimiento } from "@/lib/tipos";
-
-function formatearFecha(iso: string) {
-  return new Date(iso).toLocaleDateString("es-CO", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
-}
+import { formatearFechaSoloDia } from "@/lib/fechas";
 
 export default function PaginaProcedimientos() {
   const [procedimientos, setProcedimientos] = useState<Procedimiento[] | null>(null);
@@ -73,7 +66,7 @@ export default function PaginaProcedimientos() {
                       {proc.numeroInterno}
                     </p>
                     <p className="mt-0.5 font-sans text-xs text-institucional-700">
-                      {proc.delito} · Captura: {formatearFecha(proc.fechaCaptura)}
+                      {proc.delito} · Captura: {formatearFechaSoloDia(proc.fechaCaptura)}
                     </p>
                   </div>
                   <div className="flex items-center gap-3">

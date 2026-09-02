@@ -10,6 +10,7 @@ import { soloClaves } from "@/lib/limpiar";
 import { CampoHora } from "@/components/CampoHora";
 import type { ActuacionesProcedimiento, Procedimiento } from "@/lib/tipos";
 import { ACTUACIONES_VACIAS, CLAVES_ACTUACIONES } from "@/lib/tipos";
+import { formatearFechaSoloDia } from "@/lib/fechas";
 import { DELITO_ESTUPEFACIENTES } from "@/lib/delitos";
 
 const claseInput =
@@ -578,7 +579,7 @@ export default function BloqueActuaciones() {
 
       <Seccion titulo="Captura o aprehensión (solo lectura)">
         <p className="font-sans text-sm text-institucional-700">
-          {new Date(procedimiento!.fechaCaptura).toLocaleDateString("es-CO")} · {procedimiento!.horaCaptura}
+          {formatearFechaSoloDia(procedimiento!.fechaCaptura)} · {procedimiento!.horaCaptura}
         </p>
         <p className="mt-1 font-sans text-xs text-institucional-700">
           Este es el estimado registrado al crear el procedimiento. La hora de captura real de
