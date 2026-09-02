@@ -1,39 +1,39 @@
-// El token se guarda en una cookie (no en localStorage) para que el
-// middleware de Next.js pueda leerla en el servidor y proteger rutas
-// completas antes de que la página llegue a renderizarse.
-const NOMBRE_COOKIE = "fpj_ia_token";
+// Corrección 2026-09-03 (auditoría de seguridad de la PWA): antes, el
+// token JWT vivía en una cookie escrita y leída directamente por
+// JavaScript del navegador (document.cookie) -- eso significa que, si
+// alguna vez apareciera una vulnerabilidad de inyección de código
+// (XSS) en cualquier parte de la aplicación, un atacante podría robar
+// la sesión completa de cualquier usuario, incluidos administradores,
+// con un simple `document.cookie`. No se encontró ningún vector de XSS
+// real en la auditoría, pero esta es una protección de fondo contra
+// cualquiera que pudiera aparecer en el futuro.
+//
+// Ahora, el backend emite el token como una cookie HttpOnly (ver
+// cookie-sesion.util.ts del backend) -- invisible para JavaScript del
+// navegador, solo el servidor (tanto el de NestJS como proxy.ts de
+// Next.js) puede leerla y escribirla. Esto significa que este archivo
+// ya NO puede (ni necesita) leer, guardar o borrar el token
+// directamente: el navegador se encarga de enviarlo automáticamente en
+// cada petición (gracias a `credentials: "include"`, ver api.ts), y el
+// propio servidor la crea (al iniciar sesión) o la borra (al cerrar
+// sesión).
 
-// Coincide con la expiración real del token en el backend (8h,
-// src/auth/auth.module.ts). Si eso cambia allá, hay que actualizarlo aquí.
-const HORAS_EXPIRACION = 8;
+import { API_URL } from "./api";
 
-export function guardarToken(token: string) {
-  const expira = new Date(Date.now() + HORAS_EXPIRACION * 60 * 60 * 1000);
-  document.cookie = `${NOMBRE_COOKIE}=${token}; expires=${expira.toUTCString()}; path=/; SameSite=Lax`;
-}
-
-export function obtenerToken(): string | null {
-  if (typeof document === "undefined") return null;
-  const match = document.cookie.match(new RegExp(`(?:^|; )${NOMBRE_COOKIE}=([^;]*)`));
-  return match ? decodeURIComponent(match[1]) : null;
-}
-
-export function cerrarSesion() {
-  document.cookie = `${NOMBRE_COOKIE}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
-}
-
-/** Decodifica el payload del JWT sin verificar la firma (solo para leer
- * datos en el cliente, ej. el correo o el rol a mostrar; la verificación
- * real siempre la hace el backend — cualquier endpoint sensible por rol
- * ya está protegido allá con @Roles, esto es solo para mostrar/ocultar
- * partes de la interfaz). */
-export function payloadToken(): { sub: string; correo: string; rol: string } | null {
-  const token = obtenerToken();
-  if (!token) return null;
+// Adenda 2026-08-24 (sin cambios en esta corrección): cierra la sesión
+// pidiéndole al backend que borre la cookie -- ya no es algo que el
+// navegador pueda hacer por sí solo (tampoco puede borrar una cookie
+// HttpOnly, mismo motivo por el que no puede leerla).
+export async function cerrarSesion(): Promise<void> {
   try {
-    const payload = token.split(".")[1];
-    return JSON.parse(atob(payload));
+    await fetch(`${API_URL}/auth/logout`, {
+      method: "POST",
+      credentials: "include",
+    });
   } catch {
-    return null;
+    // Silencioso a propósito: aunque la petición falle (ej. sin
+    // conexión), seguimos adelante y redirigimos a /login de todas
+    // formas -- la cookie expira sola en un máximo de 8 horas incluso
+    // si este borrado explícito no se completó.
   }
 }

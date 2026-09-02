@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { api, ApiError } from "@/lib/api";
-import { payloadToken } from "@/lib/auth";
+import { useUsuarioActual } from "@/lib/usuario-context";
 import { descargarArchivo } from "@/lib/descargarArchivo";
 
 interface Pago {
@@ -91,7 +91,8 @@ export default function BloquePago() {
   const [procedimiento, setProcedimiento] = useState<ProcedimientoResumen | null>(null);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [esAdministrador, setEsAdministrador] = useState(false);
+  const { usuario } = useUsuarioActual();
+  const esAdministrador = usuario?.rol === "ADMINISTRADOR";
 
   const [comprobante, setComprobante] = useState<File | null>(null);
   const [registrando, setRegistrando] = useState(false);
@@ -99,10 +100,6 @@ export default function BloquePago() {
   const [observacion, setObservacion] = useState("");
   const [verificando, setVerificando] = useState<"Verificado" | "Rechazado" | null>(null);
   const [descargando, setDescargando] = useState(false);
-
-  useEffect(() => {
-    setEsAdministrador(payloadToken()?.rol === "ADMINISTRADOR");
-  }, []);
 
   async function cargar() {
     try {

@@ -5,12 +5,9 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { api, ApiError } from "@/lib/api";
-import { guardarToken } from "@/lib/auth";
 
-interface RespuestaLogin {
-  token?: string;
-  access_token?: string;
-  accessToken?: string;
+interface RespuestaVerificacion {
+  usuario: { id: string; correo: string; rol: string };
 }
 
 interface RespuestaCredenciales {
@@ -60,16 +57,17 @@ export default function PaginaLogin() {
     setError(null);
     setCargando(true);
     try {
-      const respuesta = await api.post<RespuestaLogin>(
+      // Corrección 2026-09-03 (auditoría de seguridad de la PWA): el
+      // token ya no viene en el cuerpo de esta respuesta -- el backend
+      // lo envía como cookie HttpOnly (invisible para este código, y
+      // por eso mismo más segura). El navegador ya la guardó solo, en
+      // cuanto llegó la respuesta (gracias a `credentials: "include"`,
+      // ver api.ts) -- aquí solo queda redirigir.
+      await api.post<RespuestaVerificacion>(
         "/auth/verificar-2fa",
         { correo, codigo },
         { conAuth: false },
       );
-      const token = respuesta.token ?? respuesta.access_token ?? respuesta.accessToken;
-      if (!token) {
-        throw new Error("El servidor no devolvió un token de sesión.");
-      }
-      guardarToken(token);
       router.push("/procedimientos");
     } catch (err) {
       if (err instanceof ApiError) {

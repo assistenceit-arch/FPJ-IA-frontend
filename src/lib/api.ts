@@ -1,6 +1,6 @@
-import { obtenerToken, cerrarSesion } from "./auth";
+import { cerrarSesion } from "./auth";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000/api";
+export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000/api";
 
 export class ApiError extends Error {
   status: number;
@@ -19,9 +19,17 @@ interface OpcionesApi extends RequestInit {
 
 /**
  * Cliente HTTP mínimo para hablar con el backend de FPJ IA.
- * Agrega el token JWT automáticamente (salvo que se pida lo contrario) y
- * normaliza los errores en una única forma (ApiError), incluyendo el caso
- * especial 409 "aclaracionRequerida" que usa el FPJ-5.
+ * Normaliza los errores en una única forma (ApiError), incluyendo el
+ * caso especial 409 "aclaracionRequerida" que usa el FPJ-5.
+ *
+ * Corrección 2026-09-03 (auditoría de seguridad de la PWA): ya no lee
+ * el token ni arma el header Authorization a mano -- el navegador
+ * envía la cookie de sesión (HttpOnly, invisible para este código)
+ * automáticamente en cada petición gracias a `credentials: "include"`.
+ * `conAuth` se conserva por compatibilidad de la firma (algunos
+ * llamadores todavía lo pasan explícitamente), pero ya no cambia el
+ * comportamiento real -- la cookie viaja siempre que exista, sea cual
+ * sea su valor.
  */
 export async function apiFetch<T>(ruta: string, opciones: OpcionesApi = {}): Promise<T> {
   const { conAuth = true, headers, ...resto } = opciones;
@@ -37,21 +45,15 @@ export async function apiFetch<T>(ruta: string, opciones: OpcionesApi = {}): Pro
     ...(headers as Record<string, string>),
   };
 
-  if (conAuth) {
-    const token = obtenerToken();
-    if (token) {
-      headersFinales["Authorization"] = `Bearer ${token}`;
-    }
-  }
-
   const respuesta = await fetch(`${API_URL}${ruta}`, {
     ...resto,
     headers: headersFinales,
+    credentials: "include",
   });
 
   // Sesión vencida o inválida: forzar login de nuevo.
   if (respuesta.status === 401 && conAuth) {
-    cerrarSesion();
+    void cerrarSesion();
     if (typeof window !== "undefined") {
       window.location.href = "/login";
     }

@@ -4,13 +4,15 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { api, ApiError } from "@/lib/api";
-import { cerrarSesion, payloadToken } from "@/lib/auth";
+import { cerrarSesion } from "@/lib/auth";
+import { useUsuarioActual } from "@/lib/usuario-context";
 
 const LONGITUD_MINIMA_MOTIVO = 10;
 
 export default function PaginaMiCuenta() {
   const router = useRouter();
-  const correo = payloadToken()?.correo ?? "";
+  const { usuario } = useUsuarioActual();
+  const correo = usuario?.correo ?? "";
 
   const [mostrarConfirmacion, setMostrarConfirmacion] = useState(false);
   const [motivo, setMotivo] = useState("");
@@ -26,7 +28,7 @@ export default function PaginaMiCuenta() {
     setEliminando(true);
     try {
       await api.delete("/auth/mi-cuenta", { body: JSON.stringify({ motivo: motivo.trim() }) });
-      cerrarSesion();
+      await cerrarSesion();
       router.push("/login");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "No fue posible eliminar la cuenta.");

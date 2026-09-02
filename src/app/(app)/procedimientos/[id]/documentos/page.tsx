@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { api, ApiError } from "@/lib/api";
 import { descargarArchivo } from "@/lib/descargarArchivo";
-import { payloadToken } from "@/lib/auth";
+import { useUsuarioActual } from "@/lib/usuario-context";
 
 interface CapturadoResumen {
   id: string;
@@ -103,11 +103,26 @@ function AccionDocumento({
   onDescargar: (documentoId: string) => void;
   onEnviarCorreo: (documentoId: string, correo: string) => Promise<void>;
 }) {
+  const { usuario } = useUsuarioActual();
   const [mostrarCorreo, setMostrarCorreo] = useState(false);
-  const [correo, setCorreo] = useState(() => payloadToken()?.correo ?? "");
+  const [correo, setCorreo] = useState("");
+  const [correoTocado, setCorreoTocado] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [resultado, setResultado] = useState<"exito" | null>(null);
   const [errorEnvio, setErrorEnvio] = useState<string | null>(null);
+
+  // Corrección 2026-09-03 (auditoría de seguridad de la PWA): antes,
+  // payloadToken() daba el correo del usuario de forma instantánea y
+  // síncrona (decodificando el token en el propio navegador) -- ahora
+  // viene de una consulta al backend (useUsuarioActual), que resuelve
+  // un instante después del primer render. Solo se usa como valor
+  // inicial sugerido -- si el funcionario ya empezó a escribir una
+  // dirección distinta, no se le sobrescribe lo que escribió.
+  useEffect(() => {
+    if (usuario?.correo && !correoTocado) {
+      setCorreo(usuario.correo);
+    }
+  }, [usuario, correoTocado]);
 
   async function manejarEnvio() {
     if (!generado || !correo.trim()) return;
@@ -175,7 +190,10 @@ function AccionDocumento({
             <input
               type="email"
               value={correo}
-              onChange={(e) => setCorreo(e.target.value)}
+              onChange={(e) => {
+                setCorreo(e.target.value);
+                setCorreoTocado(true);
+              }}
               placeholder="correo@institucion.gov.co"
               className="rounded-md border border-institucional-100 px-2.5 py-1.5 font-sans text-xs text-institucional-950 shadow-sm outline-none focus:border-acento"
             />

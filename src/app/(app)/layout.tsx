@@ -3,22 +3,24 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import { cerrarSesion, payloadToken } from "@/lib/auth";
+import { cerrarSesion } from "@/lib/auth";
+import { UsuarioProvider, useUsuarioActual } from "@/lib/usuario-context";
 
 export default function LayoutApp({ children }: { children: React.ReactNode }) {
+  return (
+    <UsuarioProvider>
+      <ContenidoLayout>{children}</ContenidoLayout>
+    </UsuarioProvider>
+  );
+}
+
+function ContenidoLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const [correo, setCorreo] = useState<string | null>(null);
-  const [esAdministrador, setEsAdministrador] = useState(false);
+  const { usuario } = useUsuarioActual();
+  const esAdministrador = usuario?.rol === "ADMINISTRADOR";
 
-  useEffect(() => {
-    const payload = payloadToken();
-    setCorreo(payload?.correo ?? null);
-    setEsAdministrador(payload?.rol === "ADMINISTRADOR");
-  }, []);
-
-  function manejarCierreSesion() {
-    cerrarSesion();
+  async function manejarCierreSesion() {
+    await cerrarSesion();
     router.push("/login");
   }
 
@@ -51,7 +53,7 @@ export default function LayoutApp({ children }: { children: React.ReactNode }) {
             >
               Mi cuenta
             </Link>
-            {correo && <span className="hidden sm:inline">{correo}</span>}
+            {usuario?.correo && <span className="hidden sm:inline">{usuario.correo}</span>}
             <button
               onClick={manejarCierreSesion}
               className="rounded-md border border-institucional-700 px-3 py-1.5 text-institucional-50 transition-colors hover:bg-institucional-800"

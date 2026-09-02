@@ -4,7 +4,7 @@ import { useEffect, useState, FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { api, ApiError } from "@/lib/api";
-import { payloadToken } from "@/lib/auth";
+import { useUsuarioActual } from "@/lib/usuario-context";
 import { descargarArchivo } from "@/lib/descargarArchivo";
 
 interface ConfiguracionPagos {
@@ -154,6 +154,7 @@ function formatearValor(valor: string | number): string {
 
 export default function PanelAdministracion() {
   const router = useRouter();
+  const { usuario, cargando: cargandoUsuario } = useUsuarioActual();
   const [autorizado, setAutorizado] = useState<boolean | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [mensaje, setMensaje] = useState<string | null>(null);
@@ -213,13 +214,15 @@ export default function PanelAdministracion() {
   const [creandoUsuario, setCreandoUsuario] = useState(false);
 
   useEffect(() => {
-    const payload = payloadToken();
-    if (payload?.rol !== "ADMINISTRADOR") {
-      setAutorizado(false);
-      return;
-    }
-    setAutorizado(true);
-  }, []);
+    // Corrección 2026-09-03 (auditoría de seguridad de la PWA):
+    // "cargando" del contexto compartido reemplaza el chequeo
+    // instantáneo que antes hacía payloadToken() -- ahora la consulta a
+    // /auth/perfil es asíncrona, así que hay que esperar a que termine
+    // antes de decidir "autorizado" (evita un parpadeo donde se
+    // mostraría "no autorizado" solo porque los datos aún no llegaron).
+    if (cargandoUsuario) return;
+    setAutorizado(usuario?.rol === "ADMINISTRADOR");
+  }, [cargandoUsuario, usuario]);
 
   async function cargarConfiguracion() {
     try {
