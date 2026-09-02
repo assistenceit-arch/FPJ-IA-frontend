@@ -40,7 +40,17 @@ const CSP = [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data:",
   "font-src 'self'",
-  "connect-src 'self' https:" + (esProduccion ? "" : " ws: http://localhost:*"),
+  // Corrección 2026-09-03 (tercer bug real encontrado, esta vez en el
+// servidor de pruebas): "connect-src 'self' https:" bloqueaba por
+// completo las llamadas del frontend al backend ahí -- ese servidor no
+// tiene dominio propio ni HTTPS real (se accede directo por IP), así
+// que el frontend (puerto 3001) llamando al backend (puerto 3000) es
+// una conexión HTTP normal entre dos orígenes distintos, y la política
+// solo permitía HTTPS para destinos que no fueran el propio origen. En
+// producción esto nunca se nota (ahí todo pasa por el mismo dominio
+// con HTTPS real, vía Caddy) -- pero como el servidor de pruebas debe
+// poder probar la aplicación igual de bien, se permite también HTTP.
+"connect-src 'self' http: https:" + (esProduccion ? "" : " ws:"),
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'self'",
