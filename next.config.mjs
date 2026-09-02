@@ -10,13 +10,25 @@ import { withSentryConfig } from "@sentry/nextjs";
 // puede variar). IMPORTANTE: revisar la consola del navegador después
 // de desplegar por si algo queda bloqueado sin querer; ajustar la
 // política según haga falta, no es un valor fijo para siempre.
+//
+// Corrección 2026-09-03 (bug real encontrado en pruebas): "script-src
+// 'self'" sin excepciones bloqueaba por completo el modo de desarrollo
+// (`npm run dev`) -- Next.js/Turbopack inyecta pequeños scripts en
+// línea propios para la recarga automática en caliente, y la política
+// los bloqueaba, rompiendo la aplicación entera en el navegador (no
+// tenía nada que ver con las credenciales del login, aunque lo
+// pareciera). La protección real de esta cabecera solo importa en
+// PRODUCCIÓN -- en desarrollo local no hay ningún atacante real del
+// que protegerse, así que se relaja únicamente ahí.
+const esProduccion = process.env.NODE_ENV === "production";
+
 const CSP = [
   "default-src 'self'",
-  "script-src 'self'",
+  esProduccion ? "script-src 'self'" : "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data:",
   "font-src 'self'",
-  "connect-src 'self' https:",
+  "connect-src 'self' https:" + (esProduccion ? "" : " ws: http://localhost:*"),
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'self'",
