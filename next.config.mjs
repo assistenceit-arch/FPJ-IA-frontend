@@ -34,6 +34,21 @@ import { withSentryConfig } from "@sentry/nextjs";
 // externos, restringe a dónde puede enviarse un formulario, etc.).
 const esProduccion = process.env.NODE_ENV === "production";
 
+// Corrección 2026-09-03 (auditoría de seguridad, segunda ronda):
+// Strict-Transport-Security le dice al navegador "nunca vuelvas a
+// intentar HTTP con este sitio, ni siquiera por accidente, durante los
+// próximos X días" -- muy útil en producción real (con HTTPS de
+// verdad), pero PELIGROSO de activar sin cuidado: si el servidor de
+// pruebas (NODE_ENV=production también, pero SIN HTTPS real) alguna
+// vez lo enviara, el navegador quedaría bloqueado para acceder por
+// HTTP durante meses, sin ningún aviso claro -- el mismo tipo de error
+// silencioso que ya encontramos con la cookie (ver COOKIE_SECURE en el
+// backend). Por eso NO se usa esProduccion aquí -- se usa una señal
+// más confiable: si la URL de la API configurada para este ambiente
+// realmente empieza con "https://" (dato que ya varía correctamente
+// por servidor, sin necesitar una variable nueva).
+const tieneHttpsReal = (process.env.NEXT_PUBLIC_API_URL ?? "").startsWith("https://");
+
 const CSP = [
   "default-src 'self'",
   "script-src 'self' 'unsafe-inline'" + (esProduccion ? "" : " 'unsafe-eval'"),
@@ -77,6 +92,12 @@ const nextConfig = {
             // se deshabilitan explícitamente, aunque nunca se pidan.
             value: "camera=(), microphone=(), geolocation=()",
           },
+          // Solo se envía si este ambiente de verdad tiene HTTPS (ver
+          // comentario de tieneHttpsReal arriba) -- nunca en el
+          // servidor de pruebas ni en desarrollo local.
+          ...(tieneHttpsReal
+            ? [{ key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains" }]
+            : []),
         ],
       },
     ];
