@@ -30,7 +30,8 @@ interface Capturado {
   direccion: string | null;
   telefono: string | null;
   senalesParticulares: string | null;
-  descripcionFisicaVestimenta: string | null;
+  descripcionFisica: string | null;
+  descripcionVestimenta: string | null;
   nombrePadres: string | null;
   telefonoPadres: string | null;
   // Adenda 2026-08-21: faltaba por completo en el frontend (bug real
@@ -164,7 +165,8 @@ export default function EditarInterviniente() {
         "direccion",
         "telefono",
         "senalesParticulares",
-        "descripcionFisicaVestimenta",
+        "descripcionFisica",
+        "descripcionVestimenta",
         "nombrePadres",
         "telefonoPadres",
         "escolaridad",
@@ -432,15 +434,29 @@ export default function EditarInterviniente() {
         </Campo>
       </Seccion>
 
-      <Seccion titulo="Descripción física y vestimenta">
+      <Seccion titulo="Descripción física">
         <div className="sm:col-span-2">
-          <Campo etiqueta="Descripción física y de vestimenta">
+          <Campo etiqueta="Descripción física">
             <textarea
               rows={2}
               className={claseInput}
-              value={p.descripcionFisicaVestimenta ?? ""}
-              onChange={(e) => set({ descripcionFisicaVestimenta: e.target.value })}
-              placeholder="Contextura, estatura aproximada, color de piel, cabello, prendas que vestía, etc."
+              value={p.descripcionFisica ?? ""}
+              onChange={(e) => set({ descripcionFisica: e.target.value })}
+              placeholder="Contextura, estatura aproximada, color de piel, cabello, etc."
+            />
+          </Campo>
+        </div>
+      </Seccion>
+
+      <Seccion titulo="Descripción de vestimenta">
+        <div className="sm:col-span-2">
+          <Campo etiqueta="Descripción de vestimenta">
+            <textarea
+              rows={2}
+              className={claseInput}
+              value={p.descripcionVestimenta ?? ""}
+              onChange={(e) => set({ descripcionVestimenta: e.target.value })}
+              placeholder="Prendas que vestía, colores, marcas visibles, etc."
             />
           </Campo>
         </div>
@@ -498,7 +514,7 @@ export default function EditarInterviniente() {
           </Campo>
         </div>
         <div className="sm:col-span-2">
-          <Campo etiqueta="¿Se identificó plenamente?">
+          <Campo etiqueta="¿Presentó documento de identidad?">
             <div className="mt-1 flex gap-3">
               {[true, false].map((valor) => (
                 <button
@@ -519,7 +535,13 @@ export default function EditarInterviniente() {
         </div>
         {p.identificacionPlena === false && (
           <div className="sm:col-span-2">
-            <Campo etiqueta="¿Cómo se logró establecer la identidad?">
+            {/* Adenda 2026-09-03, a solicitud del usuario: la pregunta
+                cambió de "¿Se identificó plenamente?" a "¿Presentó
+                documento de identidad?" -- este campo (mismo dato en
+                la base, formaIdentificacion) ahora recoge la
+                aclaración de cómo se aportaron los datos cuando no
+                hubo documento físico. */}
+            <Campo etiqueta="Aclaración (ej. los datos fueron aportados de manera verbal)">
               <textarea
                 rows={2}
                 className={claseInput}

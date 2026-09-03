@@ -9,6 +9,27 @@ import { soloClaves } from "@/lib/limpiar";
 import type { FuncionarioActuante, CompaneroPatrulla } from "@/lib/tipos";
 
 const ENTIDADES = ["Policía Nacional", "CTI Fiscalía", "Migración Colombia", "Ejército Nacional", "Otra"];
+// Adenda 2026-09-03, a solicitud del usuario: lista cerrada de grados
+// policiales para los campos "Cargo" (funcionario actuante) y "Grado"
+// (compañero de patrulla) -- mismo patrón ya usado en "Servicio" (con
+// "Otro" al final, que activa un campo de texto libre). El formato
+// "PP. Patrullero de Policía" coincide con la convención ya usada en
+// la narrativa generada por la IA (ver comentario de "grado" en
+// schema.prisma del backend: "PT. Nombre Apellido, placa X").
+const GRADOS_POLICIALES = [
+  "PP. Patrullero de Policía",
+  "PT. Patrullero",
+  "SI. Subintendente",
+  "IT. Intendente",
+  "IJ. Intendente Jefe",
+  "SC. Subcomisario",
+  "CM. Comisario",
+  "ST. Subteniente",
+  "TE. Teniente",
+  "CT. Capitán",
+  "MY. Mayor",
+  "Otro",
+];
 const SERVICIOS = [
   "Labores de Patrullaje",
   "Verificación de Antecedentes",
@@ -64,6 +85,13 @@ export default function BloqueFuncionario() {
   const [cargando, setCargando] = useState(true);
   const [funcionario, setFuncionario] = useState<FuncionarioActuante>(FUNCIONARIO_VACIO);
   const [servicioOtro, setServicioOtro] = useState("");
+  // Adenda 2026-09-03: buffer del campo de texto libre cuando se elige
+  // "Otro" en Cargo/Grado -- a diferencia de servicioOtro, este sí se
+  // precarga desde el dato ya guardado (ver el efecto de carga más
+  // abajo), para no perder el valor personalizado al reabrir un
+  // procedimiento existente.
+  const [cargoOtro, setCargoOtro] = useState("");
+  const [gradoOtro, setGradoOtro] = useState("");
   const [companero, setCompanero] = useState<CompaneroPatrulla | null>(null);
   const [tieneCompanero, setTieneCompanero] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -92,10 +120,16 @@ export default function BloqueFuncionario() {
             "cai",
           ]),
         });
+        if (f.cargo && !GRADOS_POLICIALES.slice(0, -1).includes(f.cargo)) {
+          setCargoOtro(f.cargo);
+        }
       }
       if (c) {
         setCompanero(soloClaves(c, ["nombreCompleto", "documento", "placa", "grado"]));
         setTieneCompanero(true);
+        if (c.grado && !GRADOS_POLICIALES.slice(0, -1).includes(c.grado)) {
+          setGradoOtro(c.grado);
+        }
       }
       setCargando(false);
     });
@@ -197,13 +231,36 @@ export default function BloqueFuncionario() {
               ))}
             </select>
           </Campo>
-          <Campo etiqueta="Cargo" requerido>
-            <input
-              className={claseInput}
-              value={funcionario.cargo}
-              onChange={(e) => setFuncionario({ ...funcionario, cargo: e.target.value })}
-            />
-          </Campo>
+          <div className="sm:col-span-2">
+            <Campo etiqueta="Cargo" requerido>
+              <select
+                className={claseInput}
+                value={GRADOS_POLICIALES.slice(0, -1).includes(funcionario.cargo) ? funcionario.cargo : "Otro"}
+                onChange={(e) => {
+                  const valor = e.target.value;
+                  setFuncionario({ ...funcionario, cargo: valor === "Otro" ? cargoOtro : valor });
+                }}
+              >
+                {GRADOS_POLICIALES.map((op) => (
+                  <option key={op}>{op}</option>
+                ))}
+              </select>
+            </Campo>
+            {!GRADOS_POLICIALES.slice(0, -1).includes(funcionario.cargo) && (
+              <div className="mt-2">
+                <Campo etiqueta="Especifique el cargo" requerido>
+                  <input
+                    className={claseInput}
+                    value={cargoOtro}
+                    onChange={(e) => {
+                      setCargoOtro(e.target.value);
+                      setFuncionario({ ...funcionario, cargo: e.target.value });
+                    }}
+                  />
+                </Campo>
+              </div>
+            )}
+          </div>
           <Campo etiqueta="Placa policial" requerido>
             <input
               className={claseInput}
@@ -326,14 +383,46 @@ export default function BloqueFuncionario() {
                 onChange={(e) => setCompanero({ ...(companero ?? COMPANERO_VACIO), placa: e.target.value })}
               />
             </Campo>
-            <Campo etiqueta="Grado">
-              <input
-                className={claseInput}
-                value={companero?.grado ?? ""}
-                onChange={(e) => setCompanero({ ...(companero ?? COMPANERO_VACIO), grado: e.target.value })}
-                placeholder="Ej. PT., PP., IT."
-              />
-            </Campo>
+            <div className="sm:col-span-2">
+              <Campo etiqueta="Grado">
+                <select
+                  className={claseInput}
+                  value={
+                    companero?.grado && GRADOS_POLICIALES.slice(0, -1).includes(companero.grado)
+                      ? companero.grado
+                      : companero?.grado
+                        ? "Otro"
+                        : ""
+                  }
+                  onChange={(e) => {
+                    const valor = e.target.value;
+                    setCompanero({
+                      ...(companero ?? COMPANERO_VACIO),
+                      grado: valor === "Otro" ? gradoOtro : valor,
+                    });
+                  }}
+                >
+                  <option value="">— Seleccionar —</option>
+                  {GRADOS_POLICIALES.map((op) => (
+                    <option key={op}>{op}</option>
+                  ))}
+                </select>
+              </Campo>
+              {companero?.grado && !GRADOS_POLICIALES.slice(0, -1).includes(companero.grado) && (
+                <div className="mt-2">
+                  <Campo etiqueta="Especifique el grado">
+                    <input
+                      className={claseInput}
+                      value={gradoOtro}
+                      onChange={(e) => {
+                        setGradoOtro(e.target.value);
+                        setCompanero({ ...(companero ?? COMPANERO_VACIO), grado: e.target.value });
+                      }}
+                    />
+                  </Campo>
+                </div>
+              )}
+            </div>
             <div className="sm:col-span-2">
               <button
                 type="button"
