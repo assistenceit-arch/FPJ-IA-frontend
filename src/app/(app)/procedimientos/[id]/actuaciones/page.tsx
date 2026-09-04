@@ -103,7 +103,20 @@ function FilaEsposas({
   // procedimiento. Mismo criterio de "sin responder" (null) que
   // esposas/lesiones.
   const [derechosLeidos, setDerechosLeidos] = useState<boolean | null>(persona.derechosLeidos);
-  const [fechaCaptura, setFechaCaptura] = useState(persona.fechaCaptura ?? "");
+  // Corrección 2026-09-04, bug real reportado tras prueba en
+  // producción: antes se guardaba aquí el valor completo tal como
+  // llega del backend (ej. "2026-09-03T00:00:00.000Z") -- si el
+  // funcionario editaba cualquier OTRO campo (hora, lesiones, etc.)
+  // sin tocar la fecha, el guardado le agregaba el sufijo de fecha
+  // POR SEGUNDA VEZ ("...000ZT00:00:00.000Z", inválido), y el servidor
+  // rechazaba el guardado completo con error 400 -- solo se notaba en
+  // capturados que YA tenían una fecha registrada de antes. Se recorta
+  // a los primeros 10 caracteres ("YYYY-MM-DD") desde el inicio, igual
+  // que ya se hacía solo para MOSTRAR el campo (línea del <input
+  // type="date"> más abajo) -- así el estado siempre guarda el mismo
+  // formato que produce ese input, sin importar si el usuario lo tocó
+  // o no en esta sesión.
+  const [fechaCaptura, setFechaCaptura] = useState((persona.fechaCaptura ?? "").slice(0, 10));
   const [horaCaptura, setHoraCaptura] = useState(persona.horaCaptura ?? "");
   const [comprendeDerechos, setComprendeDerechos] = useState<boolean | null>(persona.comprendeDerechos);
 
