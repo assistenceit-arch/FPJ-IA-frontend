@@ -16,12 +16,17 @@ import {
   CartesianGrid,
 } from "recharts";
 
+// Adenda 2026-09-03, a solicitud del usuario: reemplaza por completo
+// la versión anterior (que incluía "casos por funcionario") -- ahora
+// son exactamente estas 6 métricas, sin ninguna de más.
 interface Estadisticas {
   total: number;
   porDelito: { delito: string; cantidad: number }[];
   porTipo: { tipo: string; cantidad: number }[];
-  porFuncionario: { funcionario: string; cantidad: number }[];
   porEstacion: { estacion: string; cantidad: number }[];
+  porDepartamento: { departamento: string; cantidad: number }[];
+  porMunicipio: { municipio: string; cantidad: number }[];
+  porLocalidad: { localidad: string; cantidad: number }[];
 }
 
 type Periodo = "dia" | "semana" | "mes" | "año";
@@ -50,6 +55,37 @@ function calcularRango(periodo: Periodo): { desde: string; hasta: string } {
 }
 
 const COLORES = ["#1E3A5F", "#D4A537", "#2F855A", "#C53030", "#6B46C1", "#0987A0"];
+
+/** Tabla simple, ordenada de mayor a menor -- para las 4 métricas que
+ * pueden crecer a muchas categorías (departamento, municipio,
+ * localidad, estación), donde una gráfica se vuelve difícil de leer. */
+function TablaEstadistica({
+  titulo,
+  filas,
+}: {
+  titulo: string;
+  filas: { etiqueta: string; cantidad: number }[];
+}) {
+  return (
+    <div className="rounded-lg border border-institucional-100 bg-white p-6 shadow-sm">
+      <h2 className="font-sans text-sm font-semibold text-institucional-950">{titulo}</h2>
+      {filas.length === 0 ? (
+        <p className="mt-4 font-sans text-sm text-institucional-700">Sin datos en este período.</p>
+      ) : (
+        <table className="mt-4 w-full font-sans text-sm">
+          <tbody>
+            {filas.map((f) => (
+              <tr key={f.etiqueta} className="border-b border-institucional-50">
+                <td className="py-2 text-institucional-900">{f.etiqueta}</td>
+                <td className="py-2 text-right font-semibold text-institucional-950">{f.cantidad}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
+  );
+}
 
 export default function PaginaEstadisticas() {
   const [periodo, setPeriodo] = useState<Periodo>("mes");
@@ -170,47 +206,25 @@ export default function PaginaEstadisticas() {
           </div>
 
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-            <div className="rounded-lg border border-institucional-100 bg-white p-6 shadow-sm">
-              <h2 className="font-sans text-sm font-semibold text-institucional-950">
-                Casos por funcionario
-              </h2>
-              {datos.porFuncionario.length === 0 ? (
-                <p className="mt-4 font-sans text-sm text-institucional-700">Sin datos en este período.</p>
-              ) : (
-                <table className="mt-4 w-full font-sans text-sm">
-                  <tbody>
-                    {datos.porFuncionario.map((f) => (
-                      <tr key={f.funcionario} className="border-b border-institucional-50">
-                        <td className="py-2 text-institucional-900">{f.funcionario}</td>
-                        <td className="py-2 text-right font-semibold text-institucional-950">
-                          {f.cantidad}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
+            <TablaEstadistica
+              titulo="Casos por departamento"
+              filas={datos.porDepartamento.map((d) => ({ etiqueta: d.departamento, cantidad: d.cantidad }))}
+            />
+            <TablaEstadistica
+              titulo="Casos por municipio"
+              filas={datos.porMunicipio.map((m) => ({ etiqueta: m.municipio, cantidad: m.cantidad }))}
+            />
+          </div>
 
-            <div className="rounded-lg border border-institucional-100 bg-white p-6 shadow-sm">
-              <h2 className="font-sans text-sm font-semibold text-institucional-950">Casos por estación</h2>
-              {datos.porEstacion.length === 0 ? (
-                <p className="mt-4 font-sans text-sm text-institucional-700">Sin datos en este período.</p>
-              ) : (
-                <table className="mt-4 w-full font-sans text-sm">
-                  <tbody>
-                    {datos.porEstacion.map((e) => (
-                      <tr key={e.estacion} className="border-b border-institucional-50">
-                        <td className="py-2 text-institucional-900">{e.estacion}</td>
-                        <td className="py-2 text-right font-semibold text-institucional-950">
-                          {e.cantidad}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <TablaEstadistica
+              titulo="Casos por localidad / comuna"
+              filas={datos.porLocalidad.map((l) => ({ etiqueta: l.localidad, cantidad: l.cantidad }))}
+            />
+            <TablaEstadistica
+              titulo="Casos por estación"
+              filas={datos.porEstacion.map((e) => ({ etiqueta: e.estacion, cantidad: e.cantidad }))}
+            />
           </div>
         </div>
       ) : null}
