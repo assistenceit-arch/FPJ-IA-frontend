@@ -186,6 +186,11 @@ export default function PaginaLogin() {
                     Crear cuenta
                   </Link>
                 </p>
+                <p className="text-center font-sans text-xs text-institucional-700">
+                  <Link href="/tratamiento-de-datos" className="hover:underline">
+                    Política de Tratamiento de Datos
+                  </Link>
+                </p>
               </form>
             </>
           ) : (

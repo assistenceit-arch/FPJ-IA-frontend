@@ -40,6 +40,13 @@ export default function PaginaMiCuenta() {
     <div className="mx-auto max-w-2xl">
       <h1 className="font-display text-2xl text-institucional-950">Mi cuenta</h1>
       {correo && <p className="mt-1 font-sans text-sm text-institucional-700">{correo}</p>}
+      <Link
+        href="/tratamiento-de-datos"
+        target="_blank"
+        className="mt-2 inline-block font-sans text-sm text-acento hover:underline"
+      >
+        Política de Tratamiento de Datos
+      </Link>
 
       <div className="mt-10 rounded-lg border border-estado-error/30 bg-estado-error/5 p-6">
         <h2 className="font-sans text-base font-semibold text-institucional-950">Eliminar mi cuenta</h2>

@@ -9,6 +9,11 @@ export default function PaginaRegistro() {
   const [correo, setCorreo] = useState("");
   const [telefono, setTelefono] = useState("");
   const [password, setPassword] = useState("");
+  // Adenda 2026-09-04, a solicitud del usuario: la casilla tiene valor
+  // legal real -- el backend también la exige (ver @Equals(true) en
+  // RegistrarPublicoDto), esto solo evita una petición inútil si el
+  // funcionario no la marcó todavía.
+  const [aceptaPolitica, setAceptaPolitica] = useState(false);
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [exito, setExito] = useState(false);
@@ -20,7 +25,7 @@ export default function PaginaRegistro() {
     try {
       await api.post(
         "/auth/registro",
-        { nombres, correo, telefono, password },
+        { nombres, correo, telefono, password, aceptaPoliticaDatos: aceptaPolitica },
         { conAuth: false },
       );
       setExito(true);
@@ -123,9 +128,31 @@ export default function PaginaRegistro() {
             </p>
           )}
 
+          <div className="flex items-start gap-2">
+            <input
+              id="aceptaPolitica"
+              type="checkbox"
+              required
+              checked={aceptaPolitica}
+              onChange={(e) => setAceptaPolitica(e.target.checked)}
+              className="mt-0.5 h-4 w-4 rounded border-institucional-100 text-acento focus:ring-acento"
+            />
+            <label htmlFor="aceptaPolitica" className="font-sans text-sm text-institucional-700">
+              He leído y acepto la{" "}
+              <Link
+                href="/tratamiento-de-datos"
+                target="_blank"
+                className="font-medium text-acento hover:underline"
+              >
+                Política de Tratamiento de Datos
+              </Link>
+              .
+            </label>
+          </div>
+
           <button
             type="submit"
-            disabled={cargando}
+            disabled={cargando || !aceptaPolitica}
             className="w-full rounded-md bg-acento px-4 py-2.5 font-sans text-sm font-semibold text-white shadow-sm transition-colors hover:bg-acento-hover disabled:cursor-not-allowed disabled:opacity-60"
           >
             {cargando ? "Creando cuenta…" : "Crear cuenta"}
