@@ -16,7 +16,19 @@ const NOMBRE_COOKIE = "fpj_ia_token";
 // Adenda 2026-08-24: /olvide-password y /restablecer-password también
 // se usan precisamente sin sesión iniciada (recuperación de
 // contraseña), mismo motivo.
-const RUTAS_PUBLICAS = ["/login", "/registro", "/verificar-correo", "/olvide-password", "/restablecer-password"];
+// Adenda 2026-09-04: /tratamiento-de-datos también es pública a
+// propósito -- es la Política de Protección de Datos, y cualquier
+// persona (no solo funcionarios con sesión iniciada) debe poder
+// consultarla, incluyendo alguien ejerciendo sus derechos de Habeas
+// Data sin tener cuenta en la plataforma.
+const RUTAS_PUBLICAS = [
+  "/login",
+  "/registro",
+  "/verificar-correo",
+  "/olvide-password",
+  "/restablecer-password",
+  "/tratamiento-de-datos",
+];
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
