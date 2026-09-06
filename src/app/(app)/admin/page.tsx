@@ -18,6 +18,10 @@ interface ConfiguracionPagos {
   cuentaNumero: string | null;
   tarjetaHabilitada: boolean;
   tarjetaInstrucciones: string | null;
+  wompiHabilitado: boolean;
+  wompiLink: string | null;
+  llaveHabilitada: boolean;
+  llaveNumero: string | null;
   contactoTelefono: string | null;
   contactoCorreo: string | null;
 }
@@ -170,6 +174,10 @@ export default function PanelAdministracion() {
   const [cuentaNumero, setCuentaNumero] = useState("");
   const [tarjetaHabilitada, setTarjetaHabilitada] = useState(false);
   const [tarjetaInstrucciones, setTarjetaInstrucciones] = useState("");
+  const [wompiHabilitado, setWompiHabilitado] = useState(false);
+  const [wompiLink, setWompiLink] = useState("");
+  const [llaveHabilitada, setLlaveHabilitada] = useState(false);
+  const [llaveNumero, setLlaveNumero] = useState("");
   const [contactoTelefono, setContactoTelefono] = useState("");
   const [contactoCorreo, setContactoCorreo] = useState("");
   const [guardandoConfig, setGuardandoConfig] = useState(false);
@@ -238,6 +246,10 @@ export default function PanelAdministracion() {
         setCuentaNumero(config.cuentaNumero ?? "");
         setTarjetaHabilitada(config.tarjetaHabilitada);
         setTarjetaInstrucciones(config.tarjetaInstrucciones ?? "");
+        setWompiHabilitado(config.wompiHabilitado);
+        setWompiLink(config.wompiLink ?? "");
+        setLlaveHabilitada(config.llaveHabilitada);
+        setLlaveNumero(config.llaveNumero ?? "");
         setContactoTelefono(config.contactoTelefono ?? "");
         setContactoCorreo(config.contactoCorreo ?? "");
       }
@@ -335,6 +347,10 @@ export default function PanelAdministracion() {
         cuentaNumero: cuentaNumero.trim() || undefined,
         tarjetaHabilitada,
         tarjetaInstrucciones: tarjetaInstrucciones.trim() || undefined,
+        wompiHabilitado,
+        wompiLink: wompiLink.trim() || undefined,
+        llaveHabilitada,
+        llaveNumero: llaveNumero.trim() || undefined,
         contactoTelefono: contactoTelefono.trim() || undefined,
         contactoCorreo: contactoCorreo.trim() || undefined,
       });
@@ -703,6 +719,70 @@ export default function PanelAdministracion() {
                     placeholder="Ej. enlace de pago, o indicaciones para pagar con tarjeta en la estación…"
                     value={tarjetaInstrucciones}
                     onChange={(e) => setTarjetaInstrucciones(e.target.value)}
+                  />
+                </Campo>
+              </div>
+            )}
+          </div>
+
+          {/* Adenda 2026-09-06, a solicitud del usuario: Wompí --
+              enlace de cobro ya generado desde el propio panel de
+              Wompí, se muestra al funcionario como un botón que abre
+              ese enlace en una pestaña nueva. */}
+          <div className="sm:col-span-2 rounded-md border border-institucional-100 p-4">
+            <div className="flex items-center justify-between">
+              <span className="font-sans text-sm font-medium text-institucional-950">Wompí</span>
+              <button
+                type="button"
+                onClick={() => setWompiHabilitado((v) => !v)}
+                className={`rounded-full px-3 py-1 font-sans text-xs font-semibold transition-colors ${
+                  wompiHabilitado
+                    ? "bg-estado-completo text-white"
+                    : "bg-institucional-100 text-institucional-700"
+                }`}
+              >
+                {wompiHabilitado ? "Habilitado" : "Deshabilitado"}
+              </button>
+            </div>
+            {wompiHabilitado && (
+              <div className="mt-3">
+                <Campo etiqueta="Enlace de cobro de Wompí">
+                  <input
+                    className={claseInput}
+                    placeholder="https://checkout.wompi.co/l/..."
+                    value={wompiLink}
+                    onChange={(e) => setWompiLink(e.target.value)}
+                  />
+                </Campo>
+              </div>
+            )}
+          </div>
+
+          {/* Adenda 2026-09-06: Llave (Bre-B) -- un dato simple, igual
+              que Nequi. */}
+          <div className="sm:col-span-2 rounded-md border border-institucional-100 p-4">
+            <div className="flex items-center justify-between">
+              <span className="font-sans text-sm font-medium text-institucional-950">Llave (Bre-B)</span>
+              <button
+                type="button"
+                onClick={() => setLlaveHabilitada((v) => !v)}
+                className={`rounded-full px-3 py-1 font-sans text-xs font-semibold transition-colors ${
+                  llaveHabilitada
+                    ? "bg-estado-completo text-white"
+                    : "bg-institucional-100 text-institucional-700"
+                }`}
+              >
+                {llaveHabilitada ? "Habilitado" : "Deshabilitado"}
+              </button>
+            </div>
+            {llaveHabilitada && (
+              <div className="mt-3">
+                <Campo etiqueta="Llave">
+                  <input
+                    className={claseInput}
+                    placeholder="Ej. tu correo, celular, o número de llave"
+                    value={llaveNumero}
+                    onChange={(e) => setLlaveNumero(e.target.value)}
                   />
                 </Campo>
               </div>

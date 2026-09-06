@@ -30,6 +30,10 @@ interface ConfiguracionPagos {
   cuentaNumero: string | null;
   tarjetaHabilitada: boolean;
   tarjetaInstrucciones: string | null;
+  wompiHabilitado: boolean;
+  wompiLink: string | null;
+  llaveHabilitada: boolean;
+  llaveNumero: string | null;
   contactoTelefono: string | null;
   contactoCorreo: string | null;
 }
@@ -284,10 +288,31 @@ export default function BloquePago() {
                 )}
               </div>
             )}
+            {configuracion?.wompiHabilitado && configuracion.wompiLink && (
+              <div className="rounded-md border border-institucional-100 p-3">
+                <p className="font-sans text-sm font-medium text-institucional-950">Wompí</p>
+                <a
+                  href={configuracion.wompiLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-1.5 inline-block rounded-md bg-acento px-4 py-2 font-sans text-sm font-semibold text-white transition-colors hover:bg-acento-hover"
+                >
+                  Pagar con Wompí →
+                </a>
+              </div>
+            )}
+            {configuracion?.llaveHabilitada && (
+              <div className="rounded-md border border-institucional-100 p-3">
+                <p className="font-sans text-sm font-medium text-institucional-950">Llave (Bre-B)</p>
+                <p className="font-sans text-sm text-institucional-800">{configuracion.llaveNumero}</p>
+              </div>
+            )}
             {configuracion &&
               !configuracion.nequiHabilitado &&
               !configuracion.cuentaHabilitada &&
-              !configuracion.tarjetaHabilitada && (
+              !configuracion.tarjetaHabilitada &&
+              !configuracion.wompiHabilitado &&
+              !configuracion.llaveHabilitada && (
                 <p className="font-sans text-sm text-institucional-700">
                   Aún no hay métodos de pago configurados. Consulta con un administrador.
                 </p>

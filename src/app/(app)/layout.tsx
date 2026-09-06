@@ -1,9 +1,11 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { cerrarSesion } from "@/lib/auth";
+import { api } from "@/lib/api";
 import { UsuarioProvider, useUsuarioActual } from "@/lib/usuario-context";
 
 export default function LayoutApp({ children }: { children: React.ReactNode }) {
@@ -18,6 +20,38 @@ function ContenidoLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { usuario } = useUsuarioActual();
   const esAdministrador = usuario?.rol === "ADMINISTRADOR";
+
+  // Adenda 2026-09-06, a solicitud del usuario: aviso dentro de la app
+  // (nunca por correo, así lo pidió explícitamente) de cuántos pagos
+  // están pendientes de verificar -- visible desde cualquier pantalla
+  // para un administrador, junto al enlace al panel, sin tener que
+  // entrar a revisarlo para enterarse de que hay algo pendiente.
+  const [pagosPendientes, setPagosPendientes] = useState(0);
+
+  useEffect(() => {
+    if (!esAdministrador) return;
+    let cancelado = false;
+    api
+      .get<unknown[]>("/admin/pagos/pendientes")
+      .then((lista) => {
+        if (!cancelado) setPagosPendientes(lista.length);
+      })
+      .catch(() => {});
+    // Se revisa de nuevo cada 60 segundos mientras la sesión esté
+    // abierta, para que el aviso se mantenga al día sin recargar.
+    const intervalo = setInterval(() => {
+      api
+        .get<unknown[]>("/admin/pagos/pendientes")
+        .then((lista) => {
+          if (!cancelado) setPagosPendientes(lista.length);
+        })
+        .catch(() => {});
+    }, 60000);
+    return () => {
+      cancelado = true;
+      clearInterval(intervalo);
+    };
+  }, [esAdministrador]);
 
   async function manejarCierreSesion() {
     await cerrarSesion();
@@ -42,9 +76,17 @@ function ContenidoLayout({ children }: { children: React.ReactNode }) {
             {esAdministrador && (
               <Link
                 href="/admin"
-                className="rounded-md border border-institucional-700 px-3 py-1.5 text-institucional-50 transition-colors hover:bg-institucional-800"
+                className="relative rounded-md border border-institucional-700 px-3 py-1.5 text-institucional-50 transition-colors hover:bg-institucional-800"
               >
                 Panel de administración
+                {pagosPendientes > 0 && (
+                  <span
+                    className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-estado-error font-sans text-xs font-bold text-white"
+                    title={`${pagosPendientes} pago(s) pendiente(s) de verificar`}
+                  >
+                    {pagosPendientes > 9 ? "9+" : pagosPendientes}
+                  </span>
+                )}
               </Link>
             )}
             <Link
