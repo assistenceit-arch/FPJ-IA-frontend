@@ -118,7 +118,11 @@ export default function LayoutProcedimiento({ children }: { children: React.Reac
       // por URL directa, o el pago se rechazó mientras estaba ahí), se
       // lo redirige al Bloque 8 — el backend lo rechazaría de todas
       // formas, esto solo evita mostrarle un formulario inútil.
-      if (esComplejoSinPagar && !pathname.endsWith("/pago")) {
+      // "soporte" queda exento a propósito -- es el único bloque que
+      // debe poder consultarse incluso en este estado (a solicitud del
+      // usuario: si algo va mal con el pago, es justo cuando más
+      // podría necesitar contactar a soporte).
+      if (esComplejoSinPagar && !pathname.endsWith("/pago") && !pathname.endsWith("/soporte")) {
         router.replace(`/procedimientos/${id}/pago`);
         return;
       }
@@ -161,6 +165,10 @@ export default function LayoutProcedimiento({ children }: { children: React.Reac
           titulo: "Documentos",
           estado: estadoDocumentos(documentos?.length ?? null),
         },
+        // Adenda 2026-09-07, a solicitud del usuario: Bloque 9,
+        // puramente informativo -- siempre "completo", ya que no hay
+        // nada que el funcionario deba diligenciar aquí.
+        { slug: "soporte", numero: 9, titulo: "Soporte", estado: "completo" },
       ]);
     }
 
@@ -181,7 +189,12 @@ export default function LayoutProcedimiento({ children }: { children: React.Reac
           {(bloques ?? []).map((bloque) => {
             const activo = pathname.endsWith(`/${bloque.slug}`);
             const punto = PUNTO_ESTADO[bloque.estado];
-            const deshabilitado = bloqueadoPorPagoComplejo && bloque.slug !== "pago";
+            // "soporte" nunca se muestra deshabilitado -- a solicitud
+            // del usuario, es el único bloque que debe poder
+            // consultarse incluso en un procedimiento complejo sin
+            // pago verificado (mismo criterio que "pago" en sí mismo).
+            const deshabilitado =
+              bloqueadoPorPagoComplejo && bloque.slug !== "pago" && bloque.slug !== "soporte";
 
             if (deshabilitado) {
               return (
@@ -224,16 +237,17 @@ export default function LayoutProcedimiento({ children }: { children: React.Reac
       <section>
         {bloqueadoPorPagoComplejo && (
           <div className="mb-4 rounded-md border border-acento/30 bg-acento/10 px-4 py-3 font-sans text-sm text-institucional-900">
-            🔒 Este es un procedimiento <strong>complejo</strong>. Los Bloques 1 a 7 quedan
+            🔒 Este es un procedimiento <strong>complejo</strong>. Los demás bloques quedan
             deshabilitados hasta que un administrador verifique el pago (Bloque 7) — una vez
-            verificado, podrás diligenciar el resto de la información con normalidad.
+            verificado, podrás diligenciar el resto de la información con normalidad. Mientras
+            tanto, puedes consultar el Bloque 9 (Soporte) si necesitas ayuda.
           </div>
         )}
         {bloqueado && (
           <div className="mb-4 rounded-md border border-acento/30 bg-acento/10 px-4 py-3 font-sans text-sm text-institucional-900">
             🔒 Este procedimiento ya generó documentos oficiales y quedó <strong>bloqueado para edición</strong>.
             Los datos de los Bloques 1 a 6 ya no se pueden modificar — solo puedes descargar los
-            documentos existentes en el Bloque 8.
+            documentos existentes en el Bloque 8, o consultar el Bloque 9 (Soporte).
           </div>
         )}
         {edicionDesbloqueada && (
