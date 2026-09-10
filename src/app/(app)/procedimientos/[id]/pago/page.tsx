@@ -12,6 +12,8 @@ interface Pago {
   valor: string | number;
   comprobantePago: string | null;
   estadoPago: "Pendiente" | "Verificado" | "Rechazado";
+  verificadoPorIA: boolean;
+  analisisIA: string | null;
   createdAt: string;
   updatedAt: string;
   procedimiento?: {
@@ -69,15 +71,22 @@ function Seccion({ titulo, children }: { titulo: string; children: React.ReactNo
   );
 }
 
-function BadgeEstado({ estado }: { estado: Pago["estadoPago"] }) {
+function BadgeEstado({ estado, verificadoPorIA }: { estado: Pago["estadoPago"]; verificadoPorIA?: boolean }) {
   const estilos: Record<Pago["estadoPago"], string> = {
     Pendiente: "bg-estado-pendiente/15 text-estado-pendiente",
     Verificado: "bg-estado-completo/15 text-estado-completo",
     Rechazado: "bg-estado-error/15 text-estado-error",
   };
   return (
-    <span className={`inline-block rounded-full px-3 py-1 font-sans text-xs font-semibold ${estilos[estado]}`}>
+    <span className={`inline-flex items-center gap-1 rounded-full px-3 py-1 font-sans text-xs font-semibold ${estilos[estado]}`}>
       {estado}
+      {/* Adenda 2026-09-07, a solicitud del usuario: nunca se pierde la
+          distinción de que fue la IA quien aprobó, ni siquiera
+          visualmente -- se ve claramente distinto de una verificación
+          humana. */}
+      {estado === "Verificado" && verificadoPorIA && (
+        <span title="Verificado automáticamente por IA, no por un administrador">🤖</span>
+      )}
     </span>
   );
 }
@@ -165,6 +174,23 @@ export default function BloquePago() {
       setError(err instanceof ApiError ? err.message : "No fue posible actualizar el pago.");
     } finally {
       setVerificando(null);
+    }
+  }
+
+  // Adenda 2026-09-07, a solicitud del usuario: un administrador
+  // siempre puede revertir una aprobación automática de la IA -- la
+  // automatización nunca es la última palabra.
+  const [revirtiendo, setRevirtiendo] = useState(false);
+  async function revertirVerificacionIA() {
+    setError(null);
+    setRevirtiendo(true);
+    try {
+      await api.patch(`/procedimientos/${id}/pago/revertir-verificacion-ia`, {});
+      await cargar();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "No fue posible revertir la verificación.");
+    } finally {
+      setRevirtiendo(false);
     }
   }
 
@@ -366,7 +392,7 @@ export default function BloquePago() {
 
       {pago && !necesitaRegistrar && (
         <Seccion titulo="Estado del pago">
-          <BadgeEstado estado={pago.estadoPago} />
+          <BadgeEstado estado={pago.estadoPago} verificadoPorIA={pago.verificadoPorIA} />
           <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <dt className="font-sans text-xs text-institucional-700">Valor</dt>
@@ -423,6 +449,20 @@ export default function BloquePago() {
               </p>
             </div>
           )}
+          {/* Adenda 2026-09-07: aunque este pago no se haya aprobado
+              solo, la IA ya lo examinó y dejó su análisis -- ayuda a
+              revisar más rápido, sin tener que descifrar el
+              comprobante desde cero. */}
+          {pago.analisisIA && (
+            <div className="rounded-md border border-institucional-100 bg-institucional-50 p-3">
+              <p className="font-sans text-xs font-medium uppercase tracking-wide text-institucional-700">
+                🤖 Análisis automático de la IA
+              </p>
+              <pre className="mt-1 whitespace-pre-wrap font-sans text-xs text-institucional-800">
+                {pago.analisisIA}
+              </pre>
+            </div>
+          )}
           <Campo etiqueta="Observación">
             <textarea
               rows={2}
@@ -450,6 +490,28 @@ export default function BloquePago() {
               {verificando === "Rechazado" ? "Rechazando…" : "Rechazar pago"}
             </button>
           </div>
+        </Seccion>
+      )}
+
+      {pago && pago.estadoPago === "Verificado" && pago.verificadoPorIA && esAdministrador && (
+        <Seccion titulo="🤖 Este pago fue verificado automáticamente por IA">
+          {pago.analisisIA && (
+            <pre className="whitespace-pre-wrap rounded-md border border-institucional-100 bg-institucional-50 p-3 font-sans text-xs text-institucional-800">
+              {pago.analisisIA}
+            </pre>
+          )}
+          <p className="font-sans text-sm text-institucional-700">
+            Si algo aquí no te parece correcto, puedes revertir esta aprobación y revisarlo tú
+            mismo.
+          </p>
+          <button
+            type="button"
+            disabled={revirtiendo}
+            onClick={revertirVerificacionIA}
+            className="rounded-md border border-estado-error px-4 py-2 font-sans text-sm font-semibold text-estado-error transition-colors hover:bg-estado-error/10 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {revirtiendo ? "Revirtiendo…" : "Revertir verificación automática"}
+          </button>
         </Seccion>
       )}
 
