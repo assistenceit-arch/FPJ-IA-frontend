@@ -22,6 +22,7 @@ interface ConfiguracionPagos {
   wompiLink: string | null;
   llaveHabilitada: boolean;
   llaveNumero: string | null;
+  verificacionIaHabilitada: boolean;
   contactoTelefono: string | null;
   contactoCorreo: string | null;
 }
@@ -35,6 +36,21 @@ interface PagoPendiente {
     numeroInterno: string | null;
     tipoProcedimiento: string;
     usuario: { nombres: string; apellidos: string; correo: string; telefono: string | null };
+  };
+}
+
+// Adenda 2026-09-07, a solicitud del usuario: vista de pagos que la IA
+// aprobó automáticamente.
+interface PagoVerificadoIA {
+  id: string;
+  valor: string | number;
+  updatedAt: string;
+  analisisIA: string | null;
+  procedimiento: {
+    id: string;
+    numeroInterno: string | null;
+    tipoProcedimiento: string;
+    usuario: { nombres: string; apellidos: string; correo: string };
   };
 }
 
@@ -178,12 +194,14 @@ export default function PanelAdministracion() {
   const [wompiLink, setWompiLink] = useState("");
   const [llaveHabilitada, setLlaveHabilitada] = useState(false);
   const [llaveNumero, setLlaveNumero] = useState("");
+  const [verificacionIaHabilitada, setVerificacionIaHabilitada] = useState(true);
   const [contactoTelefono, setContactoTelefono] = useState("");
   const [contactoCorreo, setContactoCorreo] = useState("");
   const [guardandoConfig, setGuardandoConfig] = useState(false);
 
   // Pagos pendientes
   const [pagosPendientes, setPagosPendientes] = useState<PagoPendiente[]>([]);
+  const [pagosVerificadosIA, setPagosVerificadosIA] = useState<PagoVerificadoIA[]>([]);
   const [procesando, setProcesando] = useState<string | null>(null);
   const [descargandoComprobante, setDescargandoComprobante] = useState<string | null>(null);
 
@@ -250,6 +268,7 @@ export default function PanelAdministracion() {
         setWompiLink(config.wompiLink ?? "");
         setLlaveHabilitada(config.llaveHabilitada);
         setLlaveNumero(config.llaveNumero ?? "");
+        setVerificacionIaHabilitada(config.verificacionIaHabilitada);
         setContactoTelefono(config.contactoTelefono ?? "");
         setContactoCorreo(config.contactoCorreo ?? "");
       }
@@ -264,6 +283,16 @@ export default function PanelAdministracion() {
       setPagosPendientes(lista);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "No fue posible cargar los pagos pendientes.");
+    }
+  }
+
+  async function cargarPagosVerificadosIA() {
+    try {
+      const lista = await api.get<PagoVerificadoIA[]>("/admin/pagos/verificados-ia");
+      setPagosVerificadosIA(lista);
+    } catch {
+      // No es crítico si esta vista en particular falla al cargar --
+      // el resto del panel sigue funcionando con normalidad.
     }
   }
 
@@ -324,6 +353,7 @@ export default function PanelAdministracion() {
     if (autorizado !== true) return;
     cargarConfiguracion();
     cargarPagosPendientes();
+    cargarPagosVerificadosIA();
     cargarUsuarios();
     buscarProcedimientos();
     buscarAuditoria();
@@ -351,6 +381,7 @@ export default function PanelAdministracion() {
         wompiLink: wompiLink.trim() || undefined,
         llaveHabilitada,
         llaveNumero: llaveNumero.trim() || undefined,
+        verificacionIaHabilitada,
         contactoTelefono: contactoTelefono.trim() || undefined,
         contactoCorreo: contactoCorreo.trim() || undefined,
       });
@@ -789,6 +820,37 @@ export default function PanelAdministracion() {
             )}
           </div>
 
+          {/* Adenda 2026-09-07, a solicitud del usuario: interruptor
+              para apagar la verificación automática de pagos por IA en
+              cualquier momento, sin necesitar un despliegue de código
+              -- si alguna vez da problemas, todo vuelve a ser manual
+              de inmediato. */}
+          <div className="sm:col-span-2 rounded-md border border-institucional-100 p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="font-sans text-sm font-medium text-institucional-950">
+                  🤖 Verificación automática de pagos por IA
+                </span>
+                <p className="mt-0.5 font-sans text-xs text-institucional-700">
+                  Cuando está habilitada, un comprobante que cumple claramente todos los criterios
+                  (valor, destino, fecha, apariencia) se aprueba solo, sin esperar a un
+                  administrador. Puedes apagarla en cualquier momento y volver todo manual.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setVerificacionIaHabilitada((v) => !v)}
+                className={`shrink-0 rounded-full px-3 py-1 font-sans text-xs font-semibold transition-colors ${
+                  verificacionIaHabilitada
+                    ? "bg-estado-completo text-white"
+                    : "bg-institucional-100 text-institucional-700"
+                }`}
+              >
+                {verificacionIaHabilitada ? "Habilitada" : "Deshabilitada"}
+              </button>
+            </div>
+          </div>
+
           <div className="sm:col-span-2 border-t border-institucional-100 pt-4">
             <h3 className="font-display text-base text-institucional-950">
               Los funcionarios te podrán contactar a
@@ -899,6 +961,46 @@ export default function PanelAdministracion() {
                     {procesando === `${p.procedimiento.id}-Rechazado` ? "Rechazando…" : "Rechazar"}
                   </button>
                 </div>
+              </div>
+            </div>
+          ))
+        )}
+      </Seccion>
+
+      {/* ── Pagos verificados por IA (Adenda 2026-09-07) ── */}
+      <Seccion
+        titulo="🤖 Pagos verificados automáticamente por IA"
+        descripcion="Los últimos 50, más recientes primero -- para revisar de un vistazo lo que la IA aprobó sin intervención humana."
+      >
+        {pagosVerificadosIA.length === 0 ? (
+          <p className="font-sans text-sm text-institucional-700">
+            Todavía no hay ningún pago verificado automáticamente.
+          </p>
+        ) : (
+          pagosVerificadosIA.map((p) => (
+            <div key={p.id} className="rounded-md border border-institucional-100 p-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <p className="font-sans text-sm font-medium text-institucional-950">
+                    {p.procedimiento.numeroInterno ?? p.procedimiento.id} — {p.procedimiento.tipoProcedimiento}
+                  </p>
+                  <p className="font-sans text-xs text-institucional-700">
+                    {p.procedimiento.usuario.nombres} {p.procedimiento.usuario.apellidos} ·{" "}
+                    {p.procedimiento.usuario.correo} · {formatearValor(p.valor)} · verificado el{" "}
+                    {new Date(p.updatedAt).toLocaleDateString("es-CO")}
+                  </p>
+                  {p.analisisIA && (
+                    <pre className="mt-2 whitespace-pre-wrap rounded-md bg-institucional-50 p-2 font-sans text-xs text-institucional-800">
+                      {p.analisisIA}
+                    </pre>
+                  )}
+                </div>
+                <Link
+                  href={`/procedimientos/${p.procedimiento.id}/pago`}
+                  className="shrink-0 rounded-md border border-institucional-100 px-3 py-1.5 font-sans text-xs text-institucional-800 transition-colors hover:bg-institucional-50"
+                >
+                  Ver / revertir
+                </Link>
               </div>
             </div>
           ))
