@@ -531,6 +531,10 @@ export default function BloqueDocumentos() {
             procedimiento debe ser verificada por el funcionario antes de su uso oficial. Esta
             responsabilidad es indelegable.
           </p>
+          <p className="mt-2 font-sans text-base font-semibold leading-snug text-institucional-950">
+            🖨️ Estos documentos deben imprimirse en tamaño <strong>Carta</strong> para que se ajusten
+            correctamente a los estándares exigidos por las instituciones.
+          </p>
         </div>
       )}
 
