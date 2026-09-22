@@ -116,11 +116,26 @@ export default function EditarInterviniente() {
       api
         .get<ContactoNotificacion | null>(`/procedimientos/${id}/capturados/${capturadoId}/contacto-notificacion`)
         .catch(() => null),
-      api.get<{ delito: string }>(`/procedimientos/${id}`).catch(() => ({ delito: "" })),
+      api.get<{ delito: string; fechaCaptura: string | null; horaCaptura: string | null }>(`/procedimientos/${id}`).catch(() => ({ delito: "", fechaCaptura: null, horaCaptura: null })),
     ])
       .then(([p, c, proc]) => {
         if (cancelado) return;
-        setPersona(p);
+        // Corrección 2026-09-22, a solicitud del usuario tras un caso
+        // real: la fecha/hora de captura de ESTA persona se sigue
+        // pidiendo por separado (personas distintas pueden haber sido
+        // capturadas en momentos distintos dentro del mismo
+        // procedimiento), pero si todavía no se ha diligenciado, se
+        // precarga como sugerencia editable con la fecha/hora ya
+        // registrada al crear el procedimiento -- así se evita tener
+        // que volver a escribirla de cero (y el riesgo de un error de
+        // digitación como el que motivó este cambio), sin perder la
+        // posibilidad de corregirla si esta persona en particular fue
+        // capturada en un momento distinto.
+        setPersona({
+          ...p,
+          fechaCaptura: p.fechaCaptura ?? proc.fechaCaptura,
+          horaCaptura: p.horaCaptura ?? proc.horaCaptura,
+        });
         setDelito(proc.delito);
         if (c) {
           setContacto(
